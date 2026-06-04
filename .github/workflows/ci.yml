@@ -5,8 +5,12 @@ on:
   pull_request:
 
 jobs:
-  check:
+  node:
     runs-on: ubuntu-latest
+    # Live-testnet round-trips (walrus/seal) are skipped here for determinism;
+    # they run locally. Pure logic + Move/Rust interop still run everywhere.
+    env:
+      SEALEDBENCH_SKIP_NETWORK: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -18,3 +22,18 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: cargo test (enclave)
+        working-directory: enclave
+        run: cargo test
+
+  move:
+    runs-on: ubuntu-latest
+    container: mysten/sui-tools:testnet
+    steps:
+      - uses: actions/checkout@v4
+      - run: sui move test --path move/sealedbench

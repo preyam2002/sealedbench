@@ -19,7 +19,9 @@ describe("walrus config", () => {
 });
 
 // Real round-trip against the live Walrus testnet publisher + aggregator.
-describe("walrus round-trip (testnet)", () => {
+// Skipped when SEALEDBENCH_SKIP_NETWORK=1 (e.g. offline CI unit runs).
+const skipNetwork = process.env.SEALEDBENCH_SKIP_NETWORK === "1";
+describe.skipIf(skipNetwork)("walrus round-trip (testnet)", () => {
   test("PUT then GET returns byte-identical blob", async () => {
     const payload = new Uint8Array(randomBytes(96));
 
