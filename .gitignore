@@ -10,3 +10,4 @@ move/**/build/
 
 # rust
 target/
+next-env.d.ts

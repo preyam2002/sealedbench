@@ -1,7 +1,16 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
   "files": {
-    "includes": ["**", "!move/**/build"]
+    "includes": [
+      "**",
+      "!move/**/build",
+      "!**/.next",
+      "!**/dist",
+      "!**/target",
+      "!**/coverage",
+      "!**/next-env.d.ts",
+      "!**/*.css"
+    ]
   },
   "formatter": {
     "indentStyle": "space",
