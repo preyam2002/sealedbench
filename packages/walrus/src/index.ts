@@ -38,9 +38,13 @@ export async function putBlob(
   }
 
   const url = `${config.publisherUrl}/v1/blobs?epochs=${epochs}`;
+  // Copy into a fresh ArrayBuffer-backed view so the body is a valid BodyInit
+  // under both Node and DOM lib typings.
+  const body = new Uint8Array(data.byteLength);
+  body.set(data);
   const res = await fetch(url, {
     method: "PUT",
-    body: data,
+    body,
     headers: { "content-type": "application/octet-stream" },
   });
   if (!res.ok) {

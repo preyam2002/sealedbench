@@ -1,0 +1,12 @@
+{
+  "network": "testnet",
+  "objectId": "0x75939409330882d86f54607e697557bdd5fbd596fb345467fd6ba483e1a0d945",
+  "txDigest": "BFiJG7kTRUX3LDaYbm8gdCnxyUjHcm3EBec1rRuAtywV",
+  "walrusBlobId": "w2_IDO4XednvPnNTI9P9s_WmCB5qhSfAazMLInNEPEI",
+  "sha256Plaintext": "45da3c9554f9dfbf128e2de6416beb6b99703b718495041354669f899545701f",
+  "sha256Ciphertext": "f901f08d901ed6599f4debddbb36b3dc6f111015512c42bf39f6239e16a8ab96",
+  "modelTarget": "demo/clean-open-model-2024-10",
+  "cutoffTsMs": 1727740800000,
+  "setSize": 50,
+  "set": "fixtures/heldout/sealedbench-v1.jsonl"
+}
