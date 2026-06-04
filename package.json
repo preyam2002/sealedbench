@@ -1,0 +1,20 @@
+{
+  "name": "sealedbench",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "biome": "biome",
+    "build": "pnpm -r --if-present build",
+    "demo": "tsx scripts/demo.ts",
+    "lint": "biome check .",
+    "test": "pnpm -r --if-present test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.6",
+    "@types/node": "^25.9.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
