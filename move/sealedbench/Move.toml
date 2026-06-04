@@ -4,6 +4,7 @@ edition = "2024.beta"
 version = "0.0.1"
 
 [dependencies]
+enclave = { local = "../enclave" }
 
 [addresses]
 sealedbench = "0x0"
