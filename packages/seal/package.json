@@ -1,0 +1,17 @@
+{
+  "name": "@sealedbench/seal",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mysten/seal": "^1.1.3",
+    "@mysten/sui": "^2.17.0",
+    "@sealedbench/shared": "workspace:*"
+  }
+}

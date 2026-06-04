@@ -1,0 +1,10 @@
+{
+  "network": "testnet",
+  "packageId": "0x40cdf0833159ce9f688d33fa17c4b6256042c9babbc807e8600bd3c7f0fa0448",
+  "publishDigest": "9SGgUvQzZm86Nj6Uh8xKTN5LsdhjS825sD8K2GuZTch4",
+  "upgradeCapId": "0xe66a1016dd39d67ff79ac43f123cd08d90e132402c9862702a36a4397fc876c3",
+  "modules": [
+    "sealed_eval"
+  ],
+  "clockObjectId": "0x6"
+}
