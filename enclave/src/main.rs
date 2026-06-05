@@ -77,8 +77,17 @@ struct EvaluateRequest {
     system: String,
     /// Decrypted held-out set (JSONL). Replaced by in-enclave Seal decrypt later.
     items_jsonl: String,
-    trace_blob_id: String,
+    /// Walrus publisher to archive the run trace. Empty -> inline mode (no PUT),
+    /// used by offline unit tests.
+    #[serde(default)]
+    walrus_publisher_url: String,
+    #[serde(default = "default_epochs")]
+    walrus_epochs: u32,
     timestamp_ms: u64,
+}
+
+fn default_epochs() -> u32 {
+    1
 }
 
 fn parse_id_hex(value: &str) -> Result<[u8; 32], String> {
@@ -96,11 +105,24 @@ fn run_evaluate(
     let sealed_eval_id = parse_id_hex(&req.sealed_eval_id)?;
     let items = parse_items(&req.items_jsonl)?;
     let evaluation = evaluate(&req.model_target, &req.system, &items, model)?;
+
+    // Archive the trace to Walrus and commit its blobId in the signature, so the
+    // trace is bound by the attestation rather than appended afterward.
+    let trace_blob_id = if req.walrus_publisher_url.is_empty() {
+        format!("inline:{}", hex::encode(evaluation.items_hash))
+    } else {
+        sealedbench_enclave::walrus::put_blob(
+            &req.walrus_publisher_url,
+            &evaluation.trace_bytes,
+            req.walrus_epochs,
+        )?
+    };
+
     Ok(build_signed_score(
         &evaluation,
         sealed_eval_id,
         &req.model_target,
-        &req.trace_blob_id,
+        &trace_blob_id,
         req.timestamp_ms,
         key,
     ))
@@ -222,7 +244,8 @@ mod tests {
                 "{\"id\":\"b\",\"question\":\"sky?\",\"answer\":\"blue\",\"rubric\":\"r\"}\n"
             )
             .to_string(),
-            trace_blob_id: "blob".to_string(),
+            walrus_publisher_url: String::new(),
+            walrus_epochs: 1,
             timestamp_ms: 1_700_000_000_000,
         };
         let mut answers = HashMap::new();
@@ -234,5 +257,7 @@ mod tests {
         assert_eq!(signed.score_den, 2);
         assert_eq!(signed.enclave_pk, key.public_key_hex());
         assert_eq!(signed.signature.len(), 128);
+        // inline mode commits the items_hash as the trace marker
+        assert!(signed.trace_blob_id.starts_with("inline:"));
     }
 }

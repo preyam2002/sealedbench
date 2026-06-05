@@ -14,6 +14,7 @@ pub mod http_model;
 pub mod model_client;
 pub mod payload;
 pub mod signing;
+pub mod walrus;
 
 pub use evaluate::{
     build_signed_score, evaluate, parse_items, Evaluation, HeldoutItem, ItemTrace, RunTrace,
