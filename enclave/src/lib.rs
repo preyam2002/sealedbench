@@ -10,6 +10,7 @@
 pub mod attestation;
 pub mod evaluate;
 pub mod grade;
+pub mod http_model;
 pub mod model_client;
 pub mod payload;
 pub mod signing;
