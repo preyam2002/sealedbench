@@ -17,7 +17,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use sealedbench_enclave::attestation::nitro_attestation_document;
-use sealedbench_enclave::http_model::OpenAiCompatClient;
+use sealedbench_enclave::http_model::{AnthropicMessagesClient, OpenAiCompatClient};
 use sealedbench_enclave::{
     build_signed_score, evaluate, parse_items, EnclaveKey, ModelClient, SignedScore,
 };
@@ -73,6 +73,8 @@ struct EvaluateRequest {
     endpoint: String,
     model: String,
     #[serde(default)]
+    model_provider: Option<String>,
+    #[serde(default)]
     api_key: String,
     system: String,
     /// Decrypted held-out set (JSONL). Replaced by in-enclave Seal decrypt later.
@@ -88,6 +90,20 @@ struct EvaluateRequest {
 
 fn default_epochs() -> u32 {
     1
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ModelProvider {
+    OpenAiCompat,
+    Anthropic,
+}
+
+fn normalize_model_provider(value: Option<&str>) -> Result<ModelProvider, String> {
+    match value.unwrap_or("openai").to_ascii_lowercase().as_str() {
+        "openai" | "openai-compatible" | "openai_compatible" => Ok(ModelProvider::OpenAiCompat),
+        "anthropic" | "claude" => Ok(ModelProvider::Anthropic),
+        provider => Err(format!("unsupported model_provider {provider}")),
+    }
 }
 
 fn parse_id_hex(value: &str) -> Result<[u8; 32], String> {
@@ -138,9 +154,22 @@ async fn evaluate_handler(
     // oneshot channel.
     let (tx, rx) = tokio::sync::oneshot::channel();
     std::thread::spawn(move || {
-        let model =
-            OpenAiCompatClient::new(req.endpoint.clone(), req.api_key.clone(), req.model.clone());
-        let _ = tx.send(run_evaluate(&req, &model, &key));
+        let result = normalize_model_provider(req.model_provider.as_deref()).and_then(|provider| {
+            let model: Box<dyn ModelClient> = match provider {
+                ModelProvider::OpenAiCompat => Box::new(OpenAiCompatClient::new(
+                    req.endpoint.clone(),
+                    req.api_key.clone(),
+                    req.model.clone(),
+                )),
+                ModelProvider::Anthropic => Box::new(AnthropicMessagesClient::new(
+                    req.endpoint.clone(),
+                    req.api_key.clone(),
+                    req.model.clone(),
+                )),
+            };
+            run_evaluate(&req, model.as_ref(), &key)
+        });
+        let _ = tx.send(result);
     });
     let result = rx
         .await
@@ -210,6 +239,15 @@ mod tests {
         assert_eq!(json["mode"], "local-unattested");
     }
 
+    #[test]
+    fn model_provider_defaults_to_openai_compat() {
+        assert_eq!(normalize_model_provider(None).unwrap(), ModelProvider::OpenAiCompat);
+        assert_eq!(
+            normalize_model_provider(Some("anthropic")).unwrap(),
+            ModelProvider::Anthropic,
+        );
+    }
+
     #[tokio::test]
     async fn get_attestation_exposes_pubkey() {
         let res = app(state())
@@ -237,6 +275,7 @@ mod tests {
             model_target: "clean".to_string(),
             endpoint: "http://unused".to_string(),
             model: "m".to_string(),
+            model_provider: None,
             api_key: String::new(),
             system: "be terse".to_string(),
             items_jsonl: concat!(
