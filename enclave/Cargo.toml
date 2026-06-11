@@ -13,11 +13,18 @@ path = "src/main.rs"
 
 [dependencies]
 axum = "0.7"
+base64 = "0.22"
 bcs = "0.1"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
+# The canonical Seal crypto crate (the same code the key servers run):
+# EncryptedObject BCS, Boneh-Franklin IBE, TSS combine, DEM. The fastcrypto pin
+# matches that rev's workspace so group-element types unify.
+fastcrypto = { git = "https://github.com/MystenLabs/fastcrypto", rev = "5f87e04bb21d295ef6b39375a06615d45cbb906c", features = ["aes"] }
 hex = "0.4"
+rand = "0.8"
 rand_core = { version = "0.6", features = ["getrandom"] }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+seal-crypto = { git = "https://github.com/MystenLabs/seal", rev = "bb24d5bf15b1a26ef14b6303242b7b4a887dcb01", package = "crypto" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"

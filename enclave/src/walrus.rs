@@ -62,6 +62,26 @@ pub fn put_blob(publisher_url: &str, data: &[u8], epochs: u32) -> Result<String,
     parse_blob_id(&text)
 }
 
+/// GET a blob from the Walrus aggregator. Blocking; must run off the async
+/// reactor (the server calls it from a dedicated thread).
+pub fn get_blob(aggregator_url: &str, blob_id: &str) -> Result<Vec<u8>, String> {
+    let url = format!(
+        "{}/v1/blobs/{}",
+        aggregator_url.trim_end_matches('/'),
+        blob_id
+    );
+    let res = reqwest::blocking::Client::new()
+        .get(url)
+        .send()
+        .map_err(|e| format!("walrus get failed: {e}"))?;
+    if !res.status().is_success() {
+        return Err(format!("walrus http {}", res.status()));
+    }
+    res.bytes()
+        .map(|b| b.to_vec())
+        .map_err(|e| format!("read walrus blob: {e}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

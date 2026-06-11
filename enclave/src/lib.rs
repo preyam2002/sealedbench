@@ -13,6 +13,7 @@ pub mod grade;
 pub mod http_model;
 pub mod model_client;
 pub mod payload;
+pub mod seal_client;
 pub mod signing;
 pub mod walrus;
 

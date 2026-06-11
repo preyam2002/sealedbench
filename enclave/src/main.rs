@@ -1,11 +1,12 @@
 //! SealedBench enclave HTTP server.
 //!  - GET  /health_check     liveness + attestation mode
 //!  - GET  /get_attestation  enclave pubkey (+ Nitro doc on Linux)
-//!  - POST /evaluate         decrypt-in-memory(*) -> score -> signed ScorePayload
+//!  - POST /evaluate         decrypt-in-memory -> score -> signed ScorePayload
 //!
-//! (*) The Seal key-server fetch + in-enclave decrypt is gated (needs live key
-//! servers + a registered enclave); until then /evaluate accepts the decrypted
-//! held-out set directly so the scoring + attestation-signing path is runnable.
+//! /evaluate takes either `sealed_items` (production path: the enclave fetches
+//! Seal keys gated by seal_policy::seal_approve and decrypts in memory — needs
+//! a registered enclave on-chain) or plaintext `items_jsonl` (local fallback
+//! for the scoring + attestation-signing pipeline; not a key-release proof).
 use std::sync::Arc;
 
 use axum::{
@@ -18,6 +19,7 @@ use serde::{Deserialize, Serialize};
 
 use sealedbench_enclave::attestation::nitro_attestation_document;
 use sealedbench_enclave::http_model::{AnthropicMessagesClient, OpenAiCompatClient};
+use sealedbench_enclave::seal_client::{fetch_and_decrypt, SealedItemsRequest};
 use sealedbench_enclave::{
     build_signed_score, evaluate, parse_items, EnclaveKey, ModelClient, SignedScore,
 };
@@ -77,8 +79,14 @@ struct EvaluateRequest {
     #[serde(default)]
     api_key: String,
     system: String,
-    /// Decrypted held-out set (JSONL). Replaced by in-enclave Seal decrypt later.
+    /// Plaintext held-out set (JSONL). Local fallback; mutually exclusive with
+    /// `sealed_items`.
+    #[serde(default)]
     items_jsonl: String,
+    /// Production path: Seal ciphertext + key-server/enclave metadata for
+    /// in-enclave key fetch + decrypt.
+    #[serde(default)]
+    sealed_items: Option<SealedItemsRequest>,
     /// Walrus publisher to archive the run trace. Empty -> inline mode (no PUT),
     /// used by offline unit tests.
     #[serde(default)]
@@ -113,13 +121,31 @@ fn parse_id_hex(value: &str) -> Result<[u8; 32], String> {
         .map_err(|_| "sealed_eval_id must be 32 bytes".to_string())
 }
 
+/// Resolve the held-out set: in-enclave Seal decrypt (production) or the
+/// plaintext seam (local pipeline). Exactly one source must be present.
+fn resolve_items_text(req: &EvaluateRequest, key: &EnclaveKey) -> Result<String, String> {
+    match (&req.sealed_items, req.items_jsonl.is_empty()) {
+        (Some(sealed), true) => {
+            let plaintext = fetch_and_decrypt(sealed, key, req.timestamp_ms)?;
+            String::from_utf8(plaintext)
+                .map_err(|_| "decrypted held-out set is not valid UTF-8".to_string())
+        }
+        (None, false) => Ok(req.items_jsonl.clone()),
+        (Some(_), false) => {
+            Err("provide either sealed_items or items_jsonl, not both".to_string())
+        }
+        (None, true) => Err("missing held-out set: provide sealed_items or items_jsonl".to_string()),
+    }
+}
+
 fn run_evaluate(
     req: &EvaluateRequest,
     model: &dyn ModelClient,
     key: &EnclaveKey,
 ) -> Result<SignedScore, String> {
     let sealed_eval_id = parse_id_hex(&req.sealed_eval_id)?;
-    let items = parse_items(&req.items_jsonl)?;
+    let items_text = resolve_items_text(req, key)?;
+    let items = parse_items(&items_text)?;
     let evaluation = evaluate(&req.model_target, &req.system, &items, model)?;
 
     // Archive the trace to Walrus and commit its blobId in the signature, so the
@@ -240,6 +266,36 @@ mod tests {
     }
 
     #[test]
+    fn evaluate_requires_exactly_one_items_source() {
+        let key = EnclaveKey::from_seed([5u8; 32]);
+        let mut req = EvaluateRequest {
+            sealed_eval_id: format!("0x{}", "cd".repeat(32)),
+            model_target: "m".to_string(),
+            endpoint: "http://unused".to_string(),
+            model: "m".to_string(),
+            model_provider: None,
+            api_key: String::new(),
+            system: "s".to_string(),
+            items_jsonl: String::new(),
+            sealed_items: None,
+            walrus_publisher_url: String::new(),
+            walrus_epochs: 1,
+            timestamp_ms: 0,
+        };
+        assert!(resolve_items_text(&req, &key)
+            .unwrap_err()
+            .contains("missing held-out set"));
+        req.items_jsonl = "x".to_string();
+        req.sealed_items = serde_json::from_str(
+            r#"{"encrypted_object_b64":"AA==","key_servers":[],"enclave_object":{"object_id":"0x1","initial_shared_version":1}}"#,
+        )
+        .unwrap();
+        assert!(resolve_items_text(&req, &key)
+            .unwrap_err()
+            .contains("not both"));
+    }
+
+    #[test]
     fn model_provider_defaults_to_openai_compat() {
         assert_eq!(normalize_model_provider(None).unwrap(), ModelProvider::OpenAiCompat);
         assert_eq!(
@@ -283,6 +339,7 @@ mod tests {
                 "{\"id\":\"b\",\"question\":\"sky?\",\"answer\":\"blue\",\"rubric\":\"r\"}\n"
             )
             .to_string(),
+            sealed_items: None,
             walrus_publisher_url: String::new(),
             walrus_epochs: 1,
             timestamp_ms: 1_700_000_000_000,
