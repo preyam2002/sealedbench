@@ -11,8 +11,10 @@
  * Usage: tsx scripts/verify-provenance.ts <objectId> [--network testnet] [--tamper-test]
  */
 import { sha256Hex } from "@sealedbench/seal";
+import { loadDeployment } from "@sealedbench/shared";
 import { getBlob, walrusConfigFromEnv } from "@sealedbench/walrus";
 import { createSuiClient } from "./lib/sui.ts";
+import { parseVerifyProvenanceArgs } from "./lib/verify-provenance-args.ts";
 
 type Fields = {
   sha256_plaintext: number[];
@@ -30,14 +32,17 @@ function bytesToHex(bytes: number[]): string {
 }
 
 async function main(): Promise<void> {
-  const argv = process.argv.slice(2);
-  const objectId = argv.find((a) => a.startsWith("0x"));
-  const network = (argv[argv.indexOf("--network") + 1] ?? "testnet") as
-    | "testnet"
-    | "mainnet";
-  const tamper = argv.includes("--tamper-test");
+  const {
+    objectId: argObjectId,
+    network,
+    tamper,
+  } = parseVerifyProvenanceArgs(process.argv.slice(2));
+  const deployment = await loadDeployment(network);
+  const objectId = argObjectId ?? deployment.seedSealedEvalId;
   if (!objectId) {
-    console.error("usage: tsx scripts/verify-provenance.ts <objectId>");
+    console.error(
+      "usage: tsx scripts/verify-provenance.ts <objectId> (or record seedSealedEvalId in deployment)",
+    );
     process.exit(2);
   }
 

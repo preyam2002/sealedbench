@@ -1,8 +1,20 @@
 {
   "network": "testnet",
-  "packageId": "0x40cdf0833159ce9f688d33fa17c4b6256042c9babbc807e8600bd3c7f0fa0448",
-  "publishDigest": "9SGgUvQzZm86Nj6Uh8xKTN5LsdhjS825sD8K2GuZTch4",
-  "upgradeCapId": "0xe66a1016dd39d67ff79ac43f123cd08d90e132402c9862702a36a4397fc876c3",
-  "modules": ["sealed_eval"],
-  "clockObjectId": "0x6"
+  "packageId": "0x9f6c9b056485a707d6bb8f6b5d810104cf1c44752899eef5378b5e12167bae4f",
+  "publishDigest": "4LxxArqDNs5RmysvR7UyJB8EHDGPPnQEGKbEViNmQvLu",
+  "upgradeCapId": "0x7dc07b18cee10a051b23192bed99e31b333878ab0b7af3cc3417eac25100cb8c",
+  "modules": [
+    "enclave",
+    "attestation",
+    "sealed_eval",
+    "attested_score",
+    "seal_policy"
+  ],
+  "clockObjectId": "0x6",
+  "enclavePackageId": "0x9f6c9b056485a707d6bb8f6b5d810104cf1c44752899eef5378b5e12167bae4f",
+  "enclaveCapId": "0x147c132bad4b40574e6717126309bd6e32d8f42b780c1dc925948876648a6017",
+  "seedSealedEvalId": "0x758aab4a1ecbb5dab258af6a42a9208562038df125df0fd667572c06e62a77c6",
+  "seedWalrusBlobId": "T8KX29uMz18IWrYxgTAm9sfFrIgBCIJg5KDhG_6MLNQ",
+  "seedCreateDigest": "BPEnFv3iF7kyL6NVuFbu5AQ3xHScg61yGA3LadJBC9Sm",
+  "seedPlaintextHash": "45da3c9554f9dfbf128e2de6416beb6b99703b718495041354669f899545701f"
 }

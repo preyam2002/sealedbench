@@ -6,6 +6,12 @@ export type DeploymentNetwork = "testnet" | "mainnet";
 export type Deployment = {
   network: DeploymentNetwork;
   packageId: string;
+  enclavePackageId?: string;
+  enclaveCapId?: string;
+  seedSealedEvalId?: string;
+  seedWalrusBlobId?: string;
+  seedCreateDigest?: string;
+  seedPlaintextHash?: string;
   publishDigest: string;
   upgradeCapId: string | null;
   modules: string[];

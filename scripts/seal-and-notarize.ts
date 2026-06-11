@@ -69,7 +69,11 @@ async function main(): Promise<void> {
       ...process.env,
       SUI_NETWORK: args.network,
     });
-    const put = await putBlob(result.ciphertext, { config });
+    const put = await putBlob(result.ciphertext, {
+      config,
+      retries: 4,
+      retryDelayMs: 3000,
+    });
     blobId = put.blobId;
     console.log(
       `      blobId=${blobId} (${put.alreadyCertified ? "already-certified" : "newly-created"})`,

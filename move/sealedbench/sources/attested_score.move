@@ -6,6 +6,7 @@ module sealedbench::attested_score {
     use std::string::String;
     use sui::{clock::{Self, Clock}, event};
     use enclave::enclave::{Self, Enclave};
+    use sealedbench::attestation::SEALEDBENCH;
     use sealedbench::sealed_eval::{Self, SealedEval};
 
     const EInvalidEnclaveSignature: u64 = 1;
@@ -45,13 +46,15 @@ module sealedbench::attested_score {
         model_target: String,
         score_num: u64,
         score_den: u64,
+        items_hash: vector<u8>,
+        trace_blob_id: String,
         enclave_pk: vector<u8>,
         posted_at_ms: u64,
     }
 
     #[allow(lint(share_owned))]
-    public entry fun post_score<T>(
-        enclave: &Enclave<T>,
+    public fun post_score(
+        enclave: &Enclave<SEALEDBENCH>,
         sealed_eval: &SealedEval,
         score_num: u64,
         score_den: u64,
@@ -81,6 +84,8 @@ module sealedbench::attested_score {
             model_target: score.model_target,
             score_num: score.score_num,
             score_den: score.score_den,
+            items_hash: score.items_hash,
+            trace_blob_id: score.trace_blob_id,
             enclave_pk: score.enclave_pk,
             posted_at_ms: score.posted_at_ms,
         });
@@ -88,8 +93,8 @@ module sealedbench::attested_score {
         transfer::share_object(score);
     }
 
-    public fun new<T>(
-        enclave: &Enclave<T>,
+    public fun new(
+        enclave: &Enclave<SEALEDBENCH>,
         sealed_eval: &SealedEval,
         score_num: u64,
         score_den: u64,
@@ -139,8 +144,8 @@ module sealedbench::attested_score {
     /// Pure verification of an enclave score signature over the canonical
     /// ScorePayload. Returns true iff `signature` is a valid enclave-key
     /// signature over IntentMessage{SCORE_INTENT, timestamp_ms, payload}.
-    public fun verify_score_signature<T>(
-        enclave: &Enclave<T>,
+    public fun verify_score_signature(
+        enclave: &Enclave<SEALEDBENCH>,
         sealed_eval_id: ID,
         model_target: String,
         score_num: u64,
