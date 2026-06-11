@@ -16,3 +16,8 @@ export {
   sealEncryptHeldoutSetFile,
   sha256Hex,
 } from "./encrypt.ts";
+export {
+  fetchConfiguredKeyServers,
+  fetchKeyServerInfo,
+  type KeyServerInfo,
+} from "./keyservers.ts";

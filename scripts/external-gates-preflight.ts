@@ -1,6 +1,9 @@
 import { access } from "node:fs/promises";
 import { loadDeployment } from "@sealedbench/shared";
-import { checkExternalGates } from "./lib/external-gates-preflight.ts";
+import {
+  checkExternalGates,
+  SEAL_CLIENT_SOURCE,
+} from "./lib/external-gates-preflight.ts";
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -20,6 +23,7 @@ async function main(): Promise<void> {
   const candidatePaths = [
     process.env.SEALEDBENCH_PCRS_JSON ?? "enclave/out/pcr-values.json",
     process.env.SEALEDBENCH_ATTESTATION_PATH ?? "",
+    SEAL_CLIENT_SOURCE,
   ].filter(Boolean);
   const existingPaths = new Set<string>();
   await Promise.all(

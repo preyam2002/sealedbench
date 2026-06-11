@@ -65,7 +65,7 @@ describe("parseEvaluateAndPostArgs", () => {
       "0xdef",
     ]);
     expect(args).toMatchObject({ allowPlaintextItems: true, execute: true });
-    expect(() => assertEvaluateAndPostMode(args)).toThrow(/--execute/);
+    expect(() => assertEvaluateAndPostMode(args)).toThrow(/--sealed/);
   });
 
   test("allows explicit local plaintext evaluation without execute", () => {
@@ -76,5 +76,32 @@ describe("parseEvaluateAndPostArgs", () => {
     ]);
     expect(args).toMatchObject({ allowPlaintextItems: true, execute: false });
     expect(() => assertEvaluateAndPostMode(args)).not.toThrow();
+  });
+
+  test("sealed mode requires the registered Enclave object", () => {
+    const args = parseEvaluateAndPostArgs(["--sealed"]);
+    expect(args.sealed).toBe(true);
+    expect(() => assertEvaluateAndPostMode(args)).toThrow(/--enclave-object/);
+  });
+
+  test("sealed mode with an enclave object may execute", () => {
+    const args = parseEvaluateAndPostArgs([
+      "--sealed",
+      "--enclave-object",
+      "0xdef",
+      "--execute",
+    ]);
+    expect(args).toMatchObject({ sealed: true, execute: true });
+    expect(() => assertEvaluateAndPostMode(args)).not.toThrow();
+  });
+
+  test("sealed mode rejects the plaintext escape hatch", () => {
+    const args = parseEvaluateAndPostArgs([
+      "--sealed",
+      "--enclave-object",
+      "0xdef",
+      "--allow-plaintext-items",
+    ]);
+    expect(() => assertEvaluateAndPostMode(args)).toThrow(/mutually exclusive/);
   });
 });

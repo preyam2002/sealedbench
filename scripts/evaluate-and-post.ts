@@ -1,22 +1,29 @@
 /**
- * Phase 2.7 orchestrator. Given a SealedEval and a running enclave:
- *   1. POST the held-out set to the local enclave /evaluate (it scores +
- *      archives the run trace to Walrus + signs a ScorePayload),
+ * Phase 2.7/2.8 orchestrator. Given a SealedEval and a running enclave:
+ *   1. POST the held-out set to the enclave /evaluate (it scores + archives the
+ *      run trace to Walrus + signs a ScorePayload),
  *   2. verify the trace commitment (sha256(trace) == signed items_hash),
- *   3. print the exact attested_score::post_score arguments.
+ *   3. print the exact attested_score::post_score arguments (and submit them
+ *      with --execute).
  *
- * This is a local-only plaintext-items pipeline until in-enclave Seal decrypt
- * lands. The script refuses --execute so it cannot create an on-chain score that
- * overclaims Seal key release to the enclave.
+ * Two modes:
+ *   --sealed                 production path — the enclave fetches the Seal
+ *                            ciphertext from Walrus, fetches IBE keys from the
+ *                            key servers (gated by seal_policy::seal_approve
+ *                            against the registered Enclave object) and
+ *                            decrypts in memory. Requires --enclave-object.
+ *   --allow-plaintext-items  local pipeline — sends the plaintext set to
+ *                            /evaluate. Cannot --execute.
  *
  * Usage:
  *   tsx scripts/evaluate-and-post.ts --sealed-eval <id> --enclave <url>
- *        --endpoint <modelUrl> --model <name> [--api-key <k>] --set <jsonl>
- *        [--network testnet] --allow-plaintext-items
+ *        --endpoint <modelUrl> --model <name> [--api-key <k>] [--set <jsonl>]
+ *        [--network testnet] (--sealed --enclave-object <id> [--execute]
+ *                            | --allow-plaintext-items)
  */
 import { readFile } from "node:fs/promises";
 import { Transaction } from "@mysten/sui/transactions";
-import { sha256Hex } from "@sealedbench/seal";
+import { fetchConfiguredKeyServers, sha256Hex } from "@sealedbench/seal";
 import { loadDeployment } from "@sealedbench/shared";
 import { getBlob, walrusConfigFromEnv } from "@sealedbench/walrus";
 import {
@@ -42,7 +49,6 @@ async function main(): Promise<void> {
     SUI_NETWORK: args.network,
   });
 
-  const itemsJsonl = await readFile(args.set, "utf8");
   const client = createSuiClient(args.network);
   const object = await client.getObject({
     id: sealedEval,
@@ -55,10 +61,56 @@ async function main(): Promise<void> {
   const commitment = parseSealedEvalCommitmentFields(
     content.fields as Record<string, unknown>,
   );
-  const verified = verifyPlaintextSetAgainstCommitment(itemsJsonl, commitment);
-  console.log(
-    `      local set matches SealedEval: items=${verified.itemCount} sha256=${verified.sha256Plaintext}`,
-  );
+
+  let itemsField: Record<string, unknown>;
+  if (args.sealed) {
+    // Production path: the enclave pulls the ciphertext from Walrus and
+    // decrypts it in-enclave after the key servers dry-run seal_approve.
+    const enclaveObjectId = args.enclaveObject as string;
+    const enclaveObject = await client.getObject({
+      id: enclaveObjectId,
+      options: { showOwner: true },
+    });
+    const owner = enclaveObject.data?.owner;
+    const initialSharedVersion =
+      owner && typeof owner === "object" && "Shared" in owner
+        ? Number(owner.Shared.initial_shared_version)
+        : undefined;
+    if (initialSharedVersion === undefined) {
+      throw new Error(
+        `enclave object ${enclaveObjectId} is not a shared object`,
+      );
+    }
+    const keyServers = await fetchConfiguredKeyServers(args.network, client);
+    console.log(
+      `      sealed mode: ciphertext=${commitment.walrusBlobId} keyServers=${keyServers.length}`,
+    );
+    itemsField = {
+      sealed_items: {
+        walrus_blob_id: commitment.walrusBlobId,
+        walrus_aggregator_url: walrus.aggregatorUrl,
+        key_servers: keyServers.map((server) => ({
+          object_id: server.objectId,
+          url: server.url,
+          pk_b64: server.pkB64,
+        })),
+        enclave_object: {
+          object_id: enclaveObjectId,
+          initial_shared_version: initialSharedVersion,
+        },
+      },
+    };
+  } else {
+    const itemsJsonl = await readFile(args.set, "utf8");
+    const verified = verifyPlaintextSetAgainstCommitment(
+      itemsJsonl,
+      commitment,
+    );
+    console.log(
+      `      local set matches SealedEval: items=${verified.itemCount} sha256=${verified.sha256Plaintext}`,
+    );
+    itemsField = { items_jsonl: itemsJsonl };
+  }
 
   console.log(`[1/3] Calling enclave /evaluate at ${args.enclave}...`);
   const res = await fetch(`${args.enclave}/evaluate`, {
@@ -72,7 +124,7 @@ async function main(): Promise<void> {
       model_provider: args.provider,
       api_key: args.apiKey,
       system: "Answer the question concisely.",
-      items_jsonl: itemsJsonl,
+      ...itemsField,
       walrus_publisher_url: walrus.publisherUrl,
       walrus_epochs: walrus.epochs,
       timestamp_ms: Date.now(),
@@ -182,7 +234,9 @@ async function main(): Promise<void> {
   console.log(
     args.execute
       ? "\nOn-chain post_score complete."
-      : "\nLocal plaintext pipeline complete ✓ — scored, trace archived + committed. Production post_score remains disabled until in-enclave Seal decrypt lands.",
+      : args.sealed
+        ? "\nSealed pipeline complete ✓ — in-enclave decrypt, scored, trace archived + committed. Re-run with --execute to post on-chain."
+        : "\nLocal plaintext pipeline complete ✓ — scored, trace archived + committed. Use --sealed for the production key-release path.",
   );
 }
 

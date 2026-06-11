@@ -49,8 +49,8 @@ describe("checkExternalGates", () => {
       existingPaths: new Set([
         "enclave/out/pcr-values.json",
         "attestation.json",
+        "enclave/src/seal_client.rs",
       ]),
-      inEnclaveSealDecryptReady: true,
     });
 
     expect(result.ready).toBe(true);
@@ -68,8 +68,7 @@ describe("checkExternalGates", () => {
         SEALEDBENCH_ATTESTATION_BASE64: "Zm9v",
       },
       deployment,
-      existingPaths: new Set(),
-      inEnclaveSealDecryptReady: true,
+      existingPaths: new Set(["enclave/src/seal_client.rs"]),
     });
 
     expect(result.ready).toBe(true);

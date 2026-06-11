@@ -9,8 +9,10 @@ export type ExternalGateCheckInput = {
   env: Record<string, string | undefined>;
   deployment: ExternalGateDeployment;
   existingPaths: Set<string>;
-  inEnclaveSealDecryptReady?: boolean;
 };
+
+/** The in-enclave Seal client implementation (G3). */
+export const SEAL_CLIENT_SOURCE = "enclave/src/seal_client.rs";
 
 export type ExternalGateCheck = {
   ready: boolean;
@@ -68,7 +70,7 @@ export function checkExternalGates(
     nitro_attestation:
       hasValue(env.SEALEDBENCH_ATTESTATION_BASE64) ||
       existingEnvPath(env, existingPaths, "SEALEDBENCH_ATTESTATION_PATH"),
-    in_enclave_seal_decrypt: input.inEnclaveSealDecryptReady === true,
+    in_enclave_seal_decrypt: existingPaths.has(SEAL_CLIENT_SOURCE),
   };
   const blockers = Object.entries(checks)
     .filter(([, ok]) => !ok)

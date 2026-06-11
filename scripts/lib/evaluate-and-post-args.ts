@@ -11,6 +11,8 @@ export type EvaluateAndPostArgs = {
   enclaveObject: string | undefined;
   typeArg: string | undefined;
   allowPlaintextItems: boolean;
+  /** Production path: the enclave fetches Seal keys + decrypts in-enclave. */
+  sealed: boolean;
 };
 
 function value(argv: string[], flag: string): string | undefined {
@@ -38,18 +40,32 @@ export function parseEvaluateAndPostArgs(argv: string[]): EvaluateAndPostArgs {
     enclaveObject: value(argv, "--enclave-object"),
     typeArg: value(argv, "--type-arg"),
     allowPlaintextItems: argv.includes("--allow-plaintext-items"),
+    sealed: argv.includes("--sealed"),
   };
 }
 
 export function assertEvaluateAndPostMode(args: EvaluateAndPostArgs): void {
+  if (args.sealed) {
+    if (!args.enclaveObject) {
+      throw new Error(
+        "--sealed requires --enclave-object <registered Enclave object id> (seal_approve dry-runs against it)",
+      );
+    }
+    if (args.allowPlaintextItems) {
+      throw new Error(
+        "--sealed and --allow-plaintext-items are mutually exclusive",
+      );
+    }
+    return;
+  }
   if (args.execute) {
     throw new Error(
-      "--execute is disabled until in-enclave Seal decrypt is implemented; the current local pipeline uses plaintext items_jsonl",
+      "--execute requires --sealed: only the in-enclave Seal decrypt path may post an attested score; the plaintext pipeline is local-only",
     );
   }
   if (!args.allowPlaintextItems) {
     throw new Error(
-      "local evaluation sends decrypted items_jsonl to /evaluate; pass --allow-plaintext-items to acknowledge this is not the production Seal key-release path",
+      "local evaluation sends decrypted items_jsonl to /evaluate; pass --allow-plaintext-items to acknowledge this is not the production Seal key-release path (or use --sealed)",
     );
   }
 }
