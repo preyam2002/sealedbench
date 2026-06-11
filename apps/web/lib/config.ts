@@ -1,3 +1,4 @@
+import testnetDeployment from "../../../deployments/testnet.json";
 import type { Network } from "./format";
 
 export const NETWORK: Network =
@@ -5,8 +6,7 @@ export const NETWORK: Network =
 
 // The published sealedbench package (testnet). Override via env for mainnet.
 export const PACKAGE_ID =
-  process.env.NEXT_PUBLIC_SEALEDBENCH_PACKAGE_ID ??
-  "0x40cdf0833159ce9f688d33fa17c4b6256042c9babbc807e8600bd3c7f0fa0448";
+  process.env.NEXT_PUBLIC_SEALEDBENCH_PACKAGE_ID ?? testnetDeployment.packageId;
 
 // Optional: the registered enclave public key, used to downgrade scores from an
 // unrecognized enclave to "unverified" on the leaderboard.

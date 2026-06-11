@@ -11,14 +11,14 @@ export function ProvenanceBadge({
   const verdict = provenanceVerdict(evalObj);
   const clean = verdict.cutoffBeforeSeal || verdict.sealedBeforeCutoff;
   return (
-    <div className="panel rounded-sm px-3 py-2">
-      <div className="tag text-faint">Provenance</div>
-      <div className="mono mt-1 text-[0.72rem] text-muted">
+    <div className="rounded-sm border border-line bg-panel-2 px-3 py-2.5">
+      <div className="tag text-stamp-blue">Provenance</div>
+      <div className="mono mt-1.5 text-[0.72rem] text-muted">
         sealed {formatDate(evalObj.sealedAtMs)} · cutoff{" "}
         {formatDate(evalObj.cutoffTsMs)}
       </div>
       <div
-        className={`mt-1 text-[0.8rem] ${clean ? "text-verified" : "text-danger"}`}
+        className={`mono mt-1.5 text-[0.78rem] font-medium ${clean ? "text-verified" : "text-danger"}`}
       >
         {clean ? "✓" : "✗"} {verdict.label}
       </div>

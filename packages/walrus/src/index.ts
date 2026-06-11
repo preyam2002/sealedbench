@@ -6,6 +6,8 @@ export { walrusConfigFromEnv };
 export type PutBlobOptions = {
   config?: WalrusConfig;
   epochs?: number;
+  retries?: number;
+  retryDelayMs?: number;
 };
 
 export type PutBlobResult = {
@@ -33,36 +35,48 @@ export async function putBlob(
 ): Promise<PutBlobResult> {
   const config = options.config ?? walrusConfigFromEnv();
   const epochs = options.epochs ?? config.epochs;
+  const retries = options.retries ?? 0;
+  const retryDelayMs = options.retryDelayMs ?? 1500;
   if (!Number.isInteger(epochs) || epochs < 1) {
     throw new Error(`walrus: epochs must be a positive integer, got ${epochs}`);
   }
 
   const url = `${config.publisherUrl}/v1/blobs?epochs=${epochs}`;
-  // Copy into a fresh ArrayBuffer-backed view so the body is a valid BodyInit
-  // under both Node and DOM lib typings.
-  const body = new Uint8Array(data.byteLength);
-  body.set(data);
-  const res = await fetch(url, {
-    method: "PUT",
-    body,
-    headers: { "content-type": "application/octet-stream" },
-  });
-  if (!res.ok) {
-    throw new Error(
-      `walrus put failed: HTTP ${res.status} ${await res.text()}`,
-    );
-  }
+  let lastError = "";
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    // Copy into a fresh ArrayBuffer-backed view so the body is a valid BodyInit
+    // under both Node and DOM lib typings.
+    const body = new Uint8Array(data.byteLength);
+    body.set(data);
+    try {
+      const res = await fetch(url, {
+        method: "PUT",
+        body,
+        headers: { "content-type": "application/octet-stream" },
+      });
+      if (!res.ok) {
+        lastError = `HTTP ${res.status} ${await res.text()}`;
+      } else {
+        const json = (await res.json()) as WalrusPutResponse;
+        const newId = json.newlyCreated?.blobObject?.blobId;
+        if (newId) {
+          return { blobId: newId, alreadyCertified: false };
+        }
+        const existingId = json.alreadyCertified?.blobId;
+        if (existingId) {
+          return { blobId: existingId, alreadyCertified: true };
+        }
+        lastError = `unexpected response ${JSON.stringify(json)}`;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
 
-  const json = (await res.json()) as WalrusPutResponse;
-  const newId = json.newlyCreated?.blobObject?.blobId;
-  if (newId) {
-    return { blobId: newId, alreadyCertified: false };
+    if (attempt < retries) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
   }
-  const existingId = json.alreadyCertified?.blobId;
-  if (existingId) {
-    return { blobId: existingId, alreadyCertified: true };
-  }
-  throw new Error(`walrus put: unexpected response ${JSON.stringify(json)}`);
+  throw new Error(`walrus put failed for ${url}: ${lastError}`);
 }
 
 /** Read a blob back from Walrus by blobId, returning the raw bytes. */

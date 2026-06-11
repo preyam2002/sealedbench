@@ -1,63 +1,83 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0a0a0b;
-  --color-panel: #121215;
-  --color-panel-2: #17171b;
-  --color-ink: #ece9e2;
-  --color-muted: #8b877e;
-  --color-faint: #5a574f;
-  --color-line: rgba(236, 233, 226, 0.1);
-  --color-seal: #c4452f;
-  --color-seal-bright: #e0573d;
-  --color-verified: #6fd08c;
-  --color-amber: #e0b341;
-  --color-danger: #e0533d;
+  /* DECLASSIFIED DOSSIER — aged-paper, oxblood-stamp forensic palette */
+  --color-bg: #efe9da;
+  --color-panel: #faf6ec;
+  --color-panel-2: #fffaf0;
+  --color-ink: #1c1a14;
+  --color-muted: #6b6453;
+  --color-faint: #9a9078;
+  --color-line: rgba(28, 26, 20, 0.16);
+  --color-line-soft: rgba(28, 26, 20, 0.08);
+
+  --color-seal: #8c2f22;
+  --color-seal-bright: #b23a28;
+  --color-verified: #2f6b46;
+  --color-stamp-blue: #2b4a7a;
+  --color-amber: #9a6b16;
+  --color-danger: #b23a28;
 
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-body: var(--font-newsreader), ui-serif, Georgia, serif;
   --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html,
 body {
   background: var(--color-bg);
   color: var(--color-ink);
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Atmosphere: a faint forensic grid, a wax-seal glow, and a grain overlay. */
+/*
+ * Atmosphere: aged manila stock — a faint ruled ledger grid, a warm paper
+ * gradient, and a soft vignette. Fiber/grain is layered in ::after.
+ */
 body {
   min-height: 100vh;
   position: relative;
+  background-color: var(--color-bg);
   background-image:
+    /* soft vignette to round the edges of the file */
     radial-gradient(
-      900px 500px at 78% -8%,
-      rgba(196, 69, 47, 0.16),
-      transparent 60%
+      130% 90% at 50% 0%,
+      rgba(255, 250, 240, 0.5),
+      transparent 55%
     ),
-    linear-gradient(rgba(236, 233, 226, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(236, 233, 226, 0.025) 1px, transparent 1px);
+    radial-gradient(
+      120% 120% at 100% 100%,
+      rgba(140, 47, 34, 0.05),
+      transparent 50%
+    ),
+    /* ruled ledger lines */
+    linear-gradient(rgba(28, 26, 20, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(28, 26, 20, 0.035) 1px, transparent 1px);
   background-size:
     100% 100%,
-    44px 44px,
-    44px 44px;
+    100% 100%,
+    100% 30px,
+    44px 100%;
+  background-attachment: fixed, fixed, fixed, fixed;
 }
 
+/* Paper fiber/grain — subtle, multiplied into the stock, not an overlay glow. */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 50;
-  opacity: 0.4;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.32'/%3E%3C/svg%3E");
 }
 
 .mono {
@@ -66,11 +86,15 @@ body::after {
 .display {
   font-family: var(--font-display);
 }
+.sans {
+  font-family: var(--font-sans);
+}
 
 .hairline {
   border-color: var(--color-line);
 }
 
+/* Evidence-log label: monospace, tracked-out, uppercase. */
 .tag {
   font-family: var(--font-mono);
   font-size: 0.66rem;
@@ -78,9 +102,71 @@ body::after {
   text-transform: uppercase;
 }
 
+/*
+ * A case-file panel: warm paper with a hairline rule and the faintest
+ * raised-card shadow, like a sheet laid on the desk.
+ */
 .panel {
   background: var(--color-panel);
   border: 1px solid var(--color-line);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 1px 2px rgba(28, 26, 20, 0.06),
+    0 8px 24px -16px rgba(28, 26, 20, 0.4);
+}
+
+/*
+ * Rubber-stamp mark: rotated, oxblood, hollow-outline ink with a worn edge.
+ * Used for "SEALED" / "ATTESTED" / "ON-CHAIN" forensic flourishes.
+ */
+.stamp {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-seal-bright);
+  border: 2px solid var(--color-seal-bright);
+  border-radius: 3px;
+  padding: 0.28em 0.6em;
+  display: inline-block;
+  opacity: 0.82;
+  mix-blend-mode: multiply;
+  box-shadow: inset 0 0 0 1px rgba(178, 58, 40, 0.25);
+}
+.stamp-blue {
+  color: var(--color-stamp-blue);
+  border-color: var(--color-stamp-blue);
+  box-shadow: inset 0 0 0 1px rgba(43, 74, 122, 0.25);
+}
+.stamp-green {
+  color: var(--color-verified);
+  border-color: var(--color-verified);
+  box-shadow: inset 0 0 0 1px rgba(47, 107, 70, 0.25);
+}
+
+/* Redaction bar — a solid ink block, as if a name were blacked out. */
+.redact {
+  background: var(--color-ink);
+  color: transparent;
+  border-radius: 1px;
+  user-select: none;
+}
+
+/* Perforated / torn paper edge motif. */
+.perf {
+  --perf-size: 9px;
+  -webkit-mask: radial-gradient(
+      circle var(--perf-size) at var(--perf-size) 50%,
+      transparent 99%,
+      #000 100%
+    )
+    0 50% / 100% calc(2 * var(--perf-size)) repeat-x;
+  mask: radial-gradient(
+      circle var(--perf-size) at var(--perf-size) 50%,
+      transparent 99%,
+      #000 100%
+    )
+    0 50% / 100% calc(2 * var(--perf-size)) repeat-x;
 }
 
 /* Staggered reveal on load. */
@@ -99,16 +185,48 @@ body::after {
   animation: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Stamp press — a one-shot ink slam, used on key marks. */
+@keyframes stamp-press {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--rot, -6deg)) scale(1.6);
+  }
+  55% {
+    opacity: 0.95;
+    transform: rotate(var(--rot, -6deg)) scale(0.94);
+  }
+  72% {
+    transform: rotate(var(--rot, -6deg)) scale(1.04);
+  }
+  100% {
+    opacity: 0.85;
+    transform: rotate(var(--rot, -6deg)) scale(1);
+  }
+}
+.stamp-press {
+  animation: stamp-press 0.6s cubic-bezier(0.22, 1.4, 0.4, 1) both;
+}
+
+/* Gentle breathing for the wax seal mark. */
 @keyframes seal-pulse {
   0%,
   100% {
-    transform: rotate(-4deg) scale(1);
+    transform: rotate(-5deg) scale(1);
   }
   50% {
-    transform: rotate(-4deg) scale(1.015);
+    transform: rotate(-5deg) scale(1.015);
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .stamp-press {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Score meter — oxblood ink fill on a recessed paper track. */
 .score-bar {
   background: linear-gradient(
     90deg,

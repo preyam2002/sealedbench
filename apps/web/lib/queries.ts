@@ -20,6 +20,37 @@ function toHex(value: unknown): string {
   return "";
 }
 
+export function parseSealedEvalEvent(j: Record<string, unknown>): SealedEval {
+  return {
+    objectId: String(j.eval_id),
+    author: String(j.author),
+    sha256Plaintext: toHex(j.sha256_plaintext),
+    sha256Ciphertext: toHex(j.sha256_ciphertext),
+    walrusBlobId: String(j.walrus_blob_id),
+    modelTarget: String(j.model_target),
+    setSize: Number(j.set_size),
+    cutoffTsMs: Number(j.cutoff_ts_ms),
+    sealedAtMs: Number(j.sealed_at_ms),
+    sealPolicyId: String(j.seal_policy_id),
+  };
+}
+
+export function parseAttestedScoreEvent(
+  j: Record<string, unknown>,
+): AttestedScore {
+  return {
+    objectId: String(j.score_id),
+    sealedEvalId: String(j.sealed_eval_id),
+    modelTarget: String(j.model_target),
+    scoreNum: Number(j.score_num),
+    scoreDen: Number(j.score_den),
+    itemsHash: toHex(j.items_hash),
+    traceBlobId: String(j.trace_blob_id),
+    enclavePk: `0x${toHex(j.enclave_pk)}`,
+    postedAtMs: Number(j.posted_at_ms),
+  };
+}
+
 export async function fetchSealedEvals(): Promise<SealedEval[]> {
   const client = suiClient();
   const events = await client.queryEvents({
@@ -29,18 +60,7 @@ export async function fetchSealedEvals(): Promise<SealedEval[]> {
   });
   return events.data.map((event) => {
     const j = event.parsedJson as Record<string, unknown>;
-    return {
-      objectId: String(j.eval_id),
-      author: String(j.author),
-      sha256Plaintext: toHex(j.sha256_plaintext),
-      sha256Ciphertext: toHex(j.sha256_ciphertext),
-      walrusBlobId: String(j.walrus_blob_id),
-      modelTarget: String(j.model_target),
-      setSize: Number(j.set_size),
-      cutoffTsMs: Number(j.cutoff_ts_ms),
-      sealedAtMs: Number(j.sealed_at_ms),
-      sealPolicyId: String(j.seal_policy_id),
-    };
+    return parseSealedEvalEvent(j);
   });
 }
 
@@ -55,17 +75,7 @@ export async function fetchAttestedScores(): Promise<AttestedScore[]> {
   });
   return events.data.map((event) => {
     const j = event.parsedJson as Record<string, unknown>;
-    return {
-      objectId: String(j.score_id),
-      sealedEvalId: String(j.sealed_eval_id),
-      modelTarget: String(j.model_target),
-      scoreNum: Number(j.score_num),
-      scoreDen: Number(j.score_den),
-      itemsHash: "",
-      traceBlobId: "",
-      enclavePk: `0x${toHex(j.enclave_pk)}`,
-      postedAtMs: Number(j.posted_at_ms),
-    };
+    return parseAttestedScoreEvent(j);
   });
 }
 

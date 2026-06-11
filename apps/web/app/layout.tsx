@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
-import { Archivo, Fraunces, JetBrains_Mono } from "next/font/google";
+import {
+  Archivo,
+  Fraunces,
+  JetBrains_Mono,
+  Newsreader,
+} from "next/font/google";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -7,6 +12,12 @@ const fraunces = Fraunces({
   weight: ["400", "600", "900"],
   style: ["normal", "italic"],
   variable: "--font-fraunces",
+});
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-newsreader",
 });
 const archivo = Archivo({
   subsets: ["latin"],
@@ -33,7 +44,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${fraunces.variable} ${archivo.variable} ${jetbrains.variable}`}
+        className={`${fraunces.variable} ${newsreader.variable} ${archivo.variable} ${jetbrains.variable}`}
       >
         {children}
       </body>

@@ -10,8 +10,8 @@ export function AttestationBadge({
 }) {
   if (scores.length === 0) {
     return (
-      <span className="tag inline-flex items-center gap-2 text-amber">
-        <span className="h-1.5 w-1.5 rounded-full bg-amber" />
+      <span className="tag inline-flex items-center gap-2 rounded-sm border border-amber/40 px-2.5 py-1 text-amber">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber" />
         awaiting attested scores
       </span>
     );
@@ -20,8 +20,7 @@ export function AttestationBadge({
     (s) => attestationVerdict(s, registeredEnclavePk).status === "attested",
   ).length;
   return (
-    <span className="tag inline-flex items-center gap-2 text-verified">
-      <span className="h-1.5 w-1.5 rounded-full bg-verified" />
+    <span className="stamp stamp-green rotate-[-3deg] text-[0.6rem]">
       {attested} attested honest run{attested === 1 ? "" : "s"} ✓
     </span>
   );
