@@ -1,9 +1,11 @@
 # SealedBench — tasklist / resume anchor
 
-**Status (2026-06-05):** entire *gate-free* spine BUILT & VERIFIED on real infra.
-12 commits, 46 tests green (19 vitest · 9 Move · 18 cargo). Submittable as a
-Walrus-track entry today. The only remaining work needs external resources
-(model API key, AWS Nitro, live Seal key-server session) — see **GATED** below.
+**Status (2026-06-09):** entire *gate-free* spine BUILT & VERIFIED on real infra.
+Current working tree has 79 tests green (45 vitest · 10 Move · 24 cargo), a
+fresh five-module testnet package, and a matching seed `SealedEval`.
+Submittable as a Walrus-track entry today. The remaining production moat needs
+external resources plus the live in-enclave Seal decrypt path — see **GATED**
+below.
 
 > Resume rule (this user's standing feedback): **verify before claiming done.**
 > Run the "confirm current state" block first. Commit after each atomic task.
@@ -19,9 +21,9 @@ Walrus-track entry today. The only remaining work needs external resources
 cd ~/repo/sealedbench
 pnpm install --no-frozen-lockfile
 SEALEDBENCH_SKIP_NETWORK=1 pnpm test     # offline: shared/web pass, walrus/seal net-tests skip
-pnpm move:test                            # 9/9
-(cd enclave && cargo test)                # 18/18
-pnpm tsx scripts/verify-provenance.ts 0x75939409330882d86f54607e697557bdd5fbd596fb345467fd6ba483e1a0d945
+pnpm move:test                            # 10/10
+(cd enclave && cargo test)                # 24/24
+pnpm tsx scripts/verify-provenance.ts     # defaults to recorded seedSealedEvalId
 git log --oneline | head -12              # expect d5808ba … f048e6a
 ```
 Full live round-trips (real testnet) run with `pnpm test` (no skip env).
@@ -35,14 +37,17 @@ Full live round-trips (real testnet) run with `pnpm test` (no skip env).
 - [x] `packages/seal` — real Seal encryption vs live testnet key servers + offline
       backup-key round-trip.
 - [x] Move pkg published to testnet; `sealed_eval` + `attested_score` +
-      `seal_policy` + vendored `enclave`. `sui move test` 9/9 (real ed25519 vectors).
+      `seal_policy` + `attestation` + vendored `enclave`. `sui move test` 10/10
+      (real ed25519 vectors).
 - [x] `scripts/seal-and-notarize.ts` → real SealedEval on-chain;
       `scripts/verify-provenance.ts` (exit 0 / tamper exit 1).
 - [x] `enclave/` Rust: lib + runnable axum server (`/health_check`,
-      `/get_attestation`, `/evaluate`). Sigs byte-match Move vectors. `cargo test` 18/18.
+      `/get_attestation`, `/evaluate`). Sigs byte-match Move vectors. `cargo test` 24/24.
 - [x] Phase 2.6 trace→Walrus + `items_hash` commitment (verified on real Walrus);
       `scripts/verify-trace.ts`.
-- [x] Phase 2.7 `scripts/evaluate-and-post.ts` (local pipeline verified).
+- [x] Phase 2.7 `scripts/evaluate-and-post.ts` local plaintext pipeline
+      verified; it now verifies the supplied set hash against the on-chain
+      `SealedEval` and refuses `--execute` until in-enclave Seal decrypt lands.
 - [x] `apps/web` Next.js 16 leaderboard (reads real chain events). `next build` clean.
 - [x] CI (node/rust/move), `docs/VERIFICATION.md`, `docs/demo-script.md`.
 
@@ -51,29 +56,34 @@ Full live round-trips (real testnet) run with `pnpm test` (no skip env).
 ## GATED — remaining work + exact unblock
 
 ### G1. Real model scoring  — needs `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` (or OpenAI-compat URL)
-- The enclave `/evaluate` already calls any OpenAI-compatible endpoint
-  (`enclave/src/http_model.rs`). Just pass real `--endpoint/--model/--api-key`.
-- Optional: native Anthropic Messages API + `cache_control` prompt caching
-  (standing pref) — currently OpenAI-compat only; add an Anthropic path in
-  `http_model.rs` if targeting Claude directly. Test: parsing unit tests there.
+- The enclave `/evaluate` supports OpenAI-compatible endpoints and native
+  Anthropic Messages API with `cache_control` prompt caching.
+- Test with a running enclave:
+  `pnpm tsx scripts/evaluate-and-post.ts --allow-plaintext-items --provider anthropic --model <claude-model> --endpoint https://api.anthropic.com`.
+- `pnpm preflight:gates` reports this as `model_api_key` until a model API
+  credential or compatible endpoint is configured.
 
 ### G2. On-chain AttestedScore  — needs an AWS **Nitro** box (Aegis one reusable)
-- Vendor + retarget `~/repo/aegis-wallet/scripts/register-nautilus-enclave.ts`
-  → `scripts/register-nautilus-enclave.ts`. Needs the enclave EIF + a real
-  Nitro attestation doc (`make build-enclave` on the Nitro box, reuse Aegis
-  Makefile/Dockerfile patterns).
-- Define the package OTW + an `init` that mints the enclave `Cap` (so
-  `Enclave<OTW>` has a concrete `T`); wire `post_score`'s type arg.
-- Then `scripts/evaluate-and-post.ts` submits `post_score` (add `--execute`):
-  PTB = `attested_score::post_score(enclave, sealedEval, num, den, items_hash,
-  trace_blob_id, ts, sig, clock)`. The arg values are already printed by the script.
-- Add `scripts/assert-enclave-pk.ts` (fetch `Enclave`, assert pk == /get_attestation).
+- Done locally: full package published, `attestation::SEALEDBENCH` OTW exists,
+  `attestation::init` minted the enclave Cap, and deployment records
+  `enclaveCapId`.
+- Done locally: `scripts/register-nautilus-enclave.ts`,
+  `scripts/assert-enclave-pk.ts`, and post_score argument construction.
+- Remaining: build the enclave EIF on Nitro, produce real PCRs + attestation doc,
+  then run `pnpm register:enclave --attestation-path <doc.json>`.
+- After registration: `pnpm assert:enclave --enclave-object <id>`, then finish
+  G3 before enabling `evaluate-and-post --execute --enclave-object <id>`.
+- `pnpm preflight:gates` reports these as `nitro_pcrs` and
+  `nitro_attestation` until the Nitro outputs exist.
 - Result: a real `AttestedScore` → leaderboard shows it automatically (no UI change).
 
 ### G3. In-enclave Seal decrypt  — needs live key-server session vs the registered enclave
 - Add `enclave/src/seal_client.rs`: ElGamal keypair + Seal `FetchKey` + in-enclave
   decrypt. Replaces the current "request carries decrypted `items_jsonl`" seam in
   `/evaluate`. Depends on G2 (registered enclave for `seal_approve`).
+- Until this lands, `pnpm preflight:gates` reports `in_enclave_seal_decrypt`,
+  and `evaluate-and-post` requires `--allow-plaintext-items` and refuses
+  `--execute`.
 - Cross-check against `@mysten/seal` SessionKey flow; fallback options in
   BUILD_PLAN §2 (V1/V4) if `seal_approve`-to-enclave-pk can't be made to work.
 
@@ -91,10 +101,11 @@ Full live round-trips (real testnet) run with `pnpm test` (no skip env).
 
 | | |
 |---|---|
-| Package | `0x40cdf0833159ce9f688d33fa17c4b6256042c9babbc807e8600bd3c7f0fa0448` |
-| UpgradeCap | `0xe66a1016dd39d67ff79ac43f123cd08d90e132402c9862702a36a4397fc876c3` |
-| SealedEval | `0x75939409330882d86f54607e697557bdd5fbd596fb345467fd6ba483e1a0d945` |
-| Walrus ciphertext | `w2_IDO4XednvPnNTI9P9s_WmCB5qhSfAazMLInNEPEI` |
+| Package | `0x9f6c9b056485a707d6bb8f6b5d810104cf1c44752899eef5378b5e12167bae4f` |
+| UpgradeCap | `0x7dc07b18cee10a051b23192bed99e31b333878ab0b7af3cc3417eac25100cb8c` |
+| EnclaveCap | `0x147c132bad4b40574e6717126309bd6e32d8f42b780c1dc925948876648a6017` |
+| SealedEval | `0x758aab4a1ecbb5dab258af6a42a9208562038df125df0fd667572c06e62a77c6` |
+| Walrus ciphertext | `T8KX29uMz18IWrYxgTAm9sfFrIgBCIJg5KDhG_6MLNQ` |
 | Active signer addr | `0x89c2be87d2a3db2ad43f13a5b989868529c43f5d43ddad6ece3089f17df5338a` (~68 testnet SUI) |
 
 ## Gotchas
