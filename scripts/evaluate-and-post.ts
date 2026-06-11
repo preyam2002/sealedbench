@@ -1,73 +1,75 @@
 /**
  * Phase 2.7 orchestrator. Given a SealedEval and a running enclave:
- *   1. POST the held-out set to the enclave /evaluate (it scores + archives the
- *      run trace to Walrus + signs a ScorePayload),
+ *   1. POST the held-out set to the local enclave /evaluate (it scores +
+ *      archives the run trace to Walrus + signs a ScorePayload),
  *   2. verify the trace commitment (sha256(trace) == signed items_hash),
  *   3. print the exact attested_score::post_score arguments.
  *
- * The final on-chain `post_score` submit needs a *registered* on-chain Enclave
- * object, which requires a real Nitro attestation (gated). Until then this runs
- * the full local pipeline and prints what to submit.
+ * This is a local-only plaintext-items pipeline until in-enclave Seal decrypt
+ * lands. The script refuses --execute so it cannot create an on-chain score that
+ * overclaims Seal key release to the enclave.
  *
  * Usage:
  *   tsx scripts/evaluate-and-post.ts --sealed-eval <id> --enclave <url>
  *        --endpoint <modelUrl> --model <name> [--api-key <k>] --set <jsonl>
- *        [--network testnet]
+ *        [--network testnet] --allow-plaintext-items
  */
 import { readFile } from "node:fs/promises";
+import { Transaction } from "@mysten/sui/transactions";
 import { sha256Hex } from "@sealedbench/seal";
 import { loadDeployment } from "@sealedbench/shared";
 import { getBlob, walrusConfigFromEnv } from "@sealedbench/walrus";
+import {
+  assertEvaluateAndPostMode,
+  parseEvaluateAndPostArgs,
+} from "./lib/evaluate-and-post-args.ts";
+import {
+  parseSealedEvalCommitmentFields,
+  verifyPlaintextSetAgainstCommitment,
+} from "./lib/sealed-eval-commitment.ts";
+import { createSuiClient, hexToBytes, loadKeypair } from "./lib/sui.ts";
 
-type Args = {
-  sealedEval: string;
-  enclave: string;
-  endpoint: string;
-  model: string;
-  apiKey: string;
-  set: string;
-  network: "testnet" | "mainnet";
-};
-
-function parseArgs(argv: string[]): Args {
-  const get = (f: string) => {
-    const i = argv.indexOf(f);
-    return i >= 0 ? argv[i + 1] : undefined;
-  };
-  const sealedEval = get("--sealed-eval");
+async function main(): Promise<void> {
+  const args = parseEvaluateAndPostArgs(process.argv.slice(2));
+  assertEvaluateAndPostMode(args);
+  const deployment = await loadDeployment(args.network);
+  const sealedEval = args.sealedEval ?? deployment.seedSealedEvalId;
   if (!sealedEval) {
     throw new Error("--sealed-eval <objectId> is required");
   }
-  return {
-    sealedEval,
-    enclave: get("--enclave") ?? "http://127.0.0.1:3000",
-    endpoint: get("--endpoint") ?? "http://127.0.0.1:3930",
-    model: get("--model") ?? "demo",
-    apiKey: get("--api-key") ?? process.env.OPENAI_API_KEY ?? "",
-    set: get("--set") ?? "fixtures/heldout/sealedbench-v1.jsonl",
-    network: (get("--network") as Args["network"]) ?? "testnet",
-  };
-}
-
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
-  const deployment = await loadDeployment(args.network);
   const walrus = walrusConfigFromEnv({
     ...process.env,
     SUI_NETWORK: args.network,
   });
 
   const itemsJsonl = await readFile(args.set, "utf8");
+  const client = createSuiClient(args.network);
+  const object = await client.getObject({
+    id: sealedEval,
+    options: { showContent: true },
+  });
+  const content = object.data?.content;
+  if (content?.dataType !== "moveObject") {
+    throw new Error(`sealed eval ${sealedEval} has no Move object content`);
+  }
+  const commitment = parseSealedEvalCommitmentFields(
+    content.fields as Record<string, unknown>,
+  );
+  const verified = verifyPlaintextSetAgainstCommitment(itemsJsonl, commitment);
+  console.log(
+    `      local set matches SealedEval: items=${verified.itemCount} sha256=${verified.sha256Plaintext}`,
+  );
 
   console.log(`[1/3] Calling enclave /evaluate at ${args.enclave}...`);
   const res = await fetch(`${args.enclave}/evaluate`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      sealed_eval_id: args.sealedEval,
+      sealed_eval_id: sealedEval,
       model_target: args.model,
       endpoint: args.endpoint,
       model: args.model,
+      model_provider: args.provider,
       api_key: args.apiKey,
       system: "Answer the question concisely.",
       items_jsonl: itemsJsonl,
@@ -111,25 +113,76 @@ async function main(): Promise<void> {
   console.log(
     "[3/3] post_score arguments (submit once an Enclave is registered):",
   );
+  const postArgs = {
+    target: `${deployment.packageId}::attested_score::post_score`,
+    type_arg:
+      args.typeArg ?? `${deployment.packageId}::attestation::SEALEDBENCH`,
+    enclave: args.enclaveObject ?? null,
+    sealed_eval: sealedEval,
+    score_num: score.score_num,
+    score_den: score.score_den,
+    items_hash: `0x${score.items_hash}`,
+    trace_blob_id: score.trace_blob_id,
+    timestamp_ms: score.timestamp_ms,
+    signature: `0x${score.signature}`,
+  };
+  console.log(JSON.stringify(postArgs, null, 2));
+
+  if (args.execute) {
+    if (!args.enclaveObject) {
+      throw new Error(
+        "--execute requires --enclave-object <Enclave object id>",
+      );
+    }
+    const tx = new Transaction();
+    tx.moveCall({
+      target: postArgs.target,
+      typeArguments: [postArgs.type_arg],
+      arguments: [
+        tx.object(args.enclaveObject),
+        tx.object(sealedEval),
+        tx.pure.u64(BigInt(score.score_num)),
+        tx.pure.u64(BigInt(score.score_den)),
+        tx.pure.vector("u8", Array.from(hexToBytes(score.items_hash))),
+        tx.pure.string(score.trace_blob_id),
+        tx.pure.u64(BigInt(score.timestamp_ms)),
+        tx.pure.vector("u8", Array.from(hexToBytes(score.signature))),
+        tx.object(deployment.clockObjectId),
+      ],
+    });
+
+    const keypair = await loadKeypair();
+    const res = await client.signAndExecuteTransaction({
+      signer: keypair,
+      transaction: tx,
+      options: { showObjectChanges: true, showEffects: true },
+    });
+    const status = res.effects?.status?.status;
+    if (status !== "success") {
+      throw new Error(
+        `post_score failed: ${JSON.stringify(res.effects?.status)}`,
+      );
+    }
+    const created = (res.objectChanges ?? []).find(
+      (change) =>
+        change.type === "created" &&
+        "objectType" in change &&
+        change.objectType.endsWith("::attested_score::AttestedScore"),
+    );
+    const scoreId =
+      created && "objectId" in created ? created.objectId : undefined;
+    console.log(
+      JSON.stringify(
+        { step: "post_score", digest: res.digest, scoreId },
+        null,
+        2,
+      ),
+    );
+  }
   console.log(
-    JSON.stringify(
-      {
-        target: `${deployment.packageId}::attested_score::post_score`,
-        sealed_eval: args.sealedEval,
-        score_num: score.score_num,
-        score_den: score.score_den,
-        items_hash: `0x${score.items_hash}`,
-        trace_blob_id: score.trace_blob_id,
-        timestamp_ms: score.timestamp_ms,
-        signature: `0x${score.signature}`,
-        note: "needs a registered Enclave<T> object (Nitro attestation) as the first arg",
-      },
-      null,
-      2,
-    ),
-  );
-  console.log(
-    "\nLocal pipeline complete ✓ — scored, trace archived + committed. On-chain post_score is gated on enclave registration.",
+    args.execute
+      ? "\nOn-chain post_score complete."
+      : "\nLocal plaintext pipeline complete ✓ — scored, trace archived + committed. Production post_score remains disabled until in-enclave Seal decrypt lands.",
   );
 }
 

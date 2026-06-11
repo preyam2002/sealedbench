@@ -7,9 +7,16 @@
     "biome": "biome",
     "build": "pnpm -r --if-present build && pnpm typecheck:scripts",
     "demo": "tsx scripts/demo.ts",
+    "register:enclave": "tsx scripts/register-nautilus-enclave.ts",
+    "assert:enclave": "tsx scripts/assert-enclave-pk.ts",
+    "upgrade:package": "tsx scripts/upgrade-package.ts",
+    "upgrade:package:dry": "tsx scripts/upgrade-package.ts --dry-run",
+    "publish:package": "tsx scripts/upgrade-package.ts --publish-new",
+    "preflight:gates": "tsx scripts/external-gates-preflight.ts",
     "lint": "biome check .",
     "move:test": "sui move test --path move/sealedbench",
-    "test": "pnpm -r --if-present test",
+    "test": "pnpm -r --if-present test && pnpm test:scripts",
+    "test:scripts": "vitest run scripts/*.test.ts",
     "typecheck:scripts": "tsc -p scripts/tsconfig.json"
   },
   "devDependencies": {

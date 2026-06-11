@@ -2,6 +2,8 @@
 .env
 .env.local
 node_modules/
+.pnpm-store/
+.playwright-mcp/
 dist/
 .next/
 coverage/
