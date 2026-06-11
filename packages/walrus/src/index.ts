@@ -91,11 +91,15 @@ export async function getBlob(
 
   let lastError = "";
   for (let attempt = 0; attempt <= retries; attempt++) {
-    const res = await fetch(url);
-    if (res.ok) {
-      return new Uint8Array(await res.arrayBuffer());
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        return new Uint8Array(await res.arrayBuffer());
+      }
+      lastError = `HTTP ${res.status}`;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
     }
-    lastError = `HTTP ${res.status}`;
     if (attempt < retries) {
       await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     }

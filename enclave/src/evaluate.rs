@@ -69,6 +69,9 @@ pub fn evaluate(
     items: &[HeldoutItem],
     model: &dyn ModelClient,
 ) -> Result<Evaluation, String> {
+    if items.is_empty() {
+        return Err("empty held-out set: refusing to sign a 0/0 score".to_string());
+    }
     let mut item_traces = Vec::with_capacity(items.len());
     let mut score_num = 0u64;
 
@@ -175,6 +178,14 @@ mod tests {
         m.insert("capital of France?".to_string(), "Paris".to_string());
         m.insert("color of the sky?".to_string(), "blue".to_string());
         CannedModel(m)
+    }
+
+    #[test]
+    fn rejects_empty_item_set() {
+        match evaluate("m", "s", &[], &clean_model()) {
+            Err(err) => assert!(err.contains("empty held-out set")),
+            Ok(_) => panic!("empty set must be rejected"),
+        }
     }
 
     #[test]
