@@ -16,6 +16,10 @@ id resolvable on-chain.
 ## Live-run notes
 
 - Pre-start the enclave: `cd enclave && ENCLAVE_ADDR=0.0.0.0:3000 cargo run --bin sealedbench-enclave-server`.
+- Keyless model endpoints for the two-model story:
+  `pnpm tsx tools/demo-model-server.ts --port 3930 --knows 0.7` (clean) and
+  `--port 3929 --knows 1.0` (contaminated). Real OpenAI-compatible wire
+  protocol; swap in real `--endpoint`/`--api-key` once G1 is unblocked.
 - Leaderboard: `pnpm -F @sealedbench/web dev`.
 - The fully-attested run (real Nitro + model key + in-enclave Seal decrypt) is
   the production path. The local-unattested mode demos scoring/signing/trace
