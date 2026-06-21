@@ -74,15 +74,8 @@ export function EvalRunPanel({
     }
   }, [job, router]);
 
-  // Scoring is an operator action that needs a reachable enclave, so runs are
-  // only enabled on the operator's local machine. On the public/serverless
-  // deployment they're off — hide the panel entirely rather than show a dead
-  // "not enabled" button, which reads as broken to anyone browsing the demo.
-  if (!readiness.enabled) {
-    return null;
-  }
-
-  const disabled = state.status === "starting" || isActive(job);
+  const disabled =
+    !readiness.enabled || state.status === "starting" || isActive(job);
 
   return (
     <div className="rounded-sm border border-line bg-panel-2 px-3 py-3">
