@@ -36,6 +36,10 @@ export const ACTIVE_SEALED_EVAL_IDS = configuredActiveEvalIds
 export const REGISTERED_ENCLAVE_PK =
   process.env.NEXT_PUBLIC_ENCLAVE_PK ?? TESTNET.registeredEnclavePk;
 
+// The enclave of record. Stable (never env-overridden) so the leaderboard always
+// features scores from the registered enclave and not stray/ephemeral test runs.
+export const CANONICAL_ENCLAVE_PK = TESTNET.registeredEnclavePk;
+
 // RPC endpoints, tried in order. The leaderboard reads historical Move events
 // (queryEvents), which require an archival node — publicnode prunes transaction
 // history and returns "Could not find the referenced transaction events", so the

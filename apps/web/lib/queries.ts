@@ -1,4 +1,4 @@
-import { ACTIVE_SEALED_EVAL_IDS, PACKAGE_ID } from "./config";
+import { ACTIVE_SEALED_EVAL_IDS, CANONICAL_ENCLAVE_PK, PACKAGE_ID } from "./config";
 import { withRpcFallback } from "./sui";
 import type { AttestedScore, LeaderboardRow, SealedEval } from "./types";
 
@@ -97,15 +97,16 @@ export async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
     fetchSealedEvals(),
     fetchAttestedScores(),
   ]);
+  const canonicalPk = CANONICAL_ENCLAVE_PK.replace(/^0x/, "").toLowerCase();
   return filterActiveSealedEvals(evals).map((evalObj) => ({
     eval: evalObj,
-    // Only surface scores whose declared model matches the eval's declared
-    // target. This keeps the canonical attested run and drops stray/test runs
-    // posted under a different model label.
+    // Surface scores for this eval from the enclave of record only. Both runs on
+    // chain are real, but the leaderboard features the registered enclave's
+    // canonical score and drops stray/ephemeral test-run enclaves.
     scores: scores.filter(
       (s) =>
         s.sealedEvalId === evalObj.objectId &&
-        s.modelTarget === evalObj.modelTarget,
+        s.enclavePk.replace(/^0x/, "").toLowerCase() === canonicalPk,
     ),
   }));
 }
