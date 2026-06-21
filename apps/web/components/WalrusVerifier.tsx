@@ -92,15 +92,25 @@ export function WalrusVerifier({
 
       {checked ? (
         <div className="mono mt-3 border-t border-line-soft pt-2 text-[0.72rem] leading-relaxed">
-          <div
-            className={
-              state.status === "match"
-                ? "font-medium text-verified"
-                : "font-medium text-danger"
-            }
-          >
-            {state.status === "match" ? "MATCH" : "MISMATCH"} ·{" "}
-            {state.bytes.toLocaleString()} bytes
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={
+                state.status === "match"
+                  ? "font-medium text-verified"
+                  : "font-medium text-danger"
+              }
+            >
+              {state.status === "match" ? "MATCH" : "MISMATCH"} ·{" "}
+              {state.bytes.toLocaleString()} bytes
+            </span>
+            {state.status === "match" ? (
+              <span
+                className="stamp stamp-green stamp-press text-[0.5rem]"
+                style={{ ["--rot" as string]: "-4deg" }}
+              >
+                Verified
+              </span>
+            ) : null}
           </div>
           <div className="mt-1 text-muted">
             recomputed {shortId(`0x${state.actual}`, 8, 8)}
