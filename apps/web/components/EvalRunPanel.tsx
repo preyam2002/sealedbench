@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { type Network, suiscanObjectUrl, suiscanTxUrl } from "@/lib/format";
-import { formatSetupCommand, type RunReadiness } from "@/lib/run-readiness";
+import type { RunReadiness } from "@/lib/run-readiness";
 import type { RunJob } from "@/lib/types";
 
 type StartState =
@@ -106,13 +106,6 @@ export function EvalRunPanel({
         Starts the sealed Nitro scorer for this eval. The browser receives job
         logs and final proof links, not plaintext benchmark items.
       </div>
-
-      {!readiness.enabled ? (
-        <div className="mono mt-3 border-t border-line-soft pt-2 text-[0.72rem] leading-relaxed text-amber">
-          <div>{readiness.reason}</div>
-          <div className="mt-2 text-faint">{formatSetupCommand(evalId)}</div>
-        </div>
-      ) : null}
 
       {state.status === "error" ? (
         <div className="mono mt-3 border-t border-line-soft pt-2 text-[0.72rem] leading-relaxed text-danger">
