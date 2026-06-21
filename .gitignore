@@ -28,3 +28,6 @@ enclave/prebuilt/
 # assistant process scaffolding (not part of the project)
 docs/superpowers/
 .claude/
+
+# vercel
+.vercel/
