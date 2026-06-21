@@ -1,8 +1,9 @@
-import { Leaderboard } from "@/components/Leaderboard";
+import { EvalExplorer } from "@/components/EvalExplorer";
 import { SealMark } from "@/components/SealMark";
 import { NETWORK, PACKAGE_ID, REGISTERED_ENCLAVE_PK } from "@/lib/config";
 import { shortId, suiscanObjectUrl } from "@/lib/format";
 import { fetchLeaderboard } from "@/lib/queries";
+import { resolveRunReadiness } from "@/lib/run-readiness";
 import type { LeaderboardRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export default async function Home() {
 
   const sealedCount = rows.length;
   const scoreCount = rows.reduce((n, r) => n + r.scores.length, 0);
+  const runReadiness = resolveRunReadiness();
   const fileNo = `SB-${NETWORK.slice(0, 3).toUpperCase()}-${String(
     sealedCount,
   ).padStart(4, "0")}`;
@@ -79,10 +81,7 @@ export default async function Home() {
             </span>
           </div>
         </div>
-        <div
-          className="shrink-0"
-          style={{ animation: "seal-pulse 6s ease-in-out infinite" }}
-        >
+        <div className="seal-breathe shrink-0">
           <SealMark size={132} />
         </div>
       </header>
@@ -100,6 +99,33 @@ export default async function Home() {
             <div className="mono mt-1 truncate text-base text-ink">{s.v}</div>
           </div>
         ))}
+      </section>
+
+      <section className="rise mt-10 border-y border-line py-5">
+        <div className="tag text-seal">How it works</div>
+        <div className="mt-4 grid gap-5 sm:grid-cols-3">
+          {[
+            {
+              k: "01 Seal",
+              v: "Ciphertext goes to Walrus; its SHA-256, cutoff, and policy land on Sui.",
+            },
+            {
+              k: "02 Decrypt",
+              v: "Seal releases keys only to the registered enclave and the attested scorer.",
+            },
+            {
+              k: "03 Post",
+              v: "The enclave signs the score, trace hash, and model target before Sui accepts it.",
+            },
+          ].map((step) => (
+            <div key={step.k}>
+              <div className="tag text-faint">{step.k}</div>
+              <p className="font-body mt-2 text-[0.95rem] leading-relaxed text-muted">
+                {step.v}
+              </p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <div className="mt-14 flex items-baseline justify-between border-b border-line pb-2">
@@ -122,10 +148,11 @@ export default async function Home() {
         </div>
       ) : (
         <div className="mt-5">
-          <Leaderboard
+          <EvalExplorer
             rows={rows}
             network={NETWORK}
             registeredEnclavePk={REGISTERED_ENCLAVE_PK || undefined}
+            runReadiness={runReadiness}
           />
         </div>
       )}

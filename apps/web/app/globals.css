@@ -217,10 +217,14 @@ body::after {
     transform: rotate(-5deg) scale(1.015);
   }
 }
+.seal-breathe {
+  animation: seal-pulse 6s ease-in-out infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .rise,
-  .stamp-press {
+  .stamp-press,
+  .seal-breathe {
     animation: none;
     opacity: 1;
   }

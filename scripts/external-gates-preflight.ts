@@ -23,6 +23,7 @@ async function main(): Promise<void> {
   const candidatePaths = [
     process.env.SEALEDBENCH_PCRS_JSON ?? "enclave/out/pcr-values.json",
     process.env.SEALEDBENCH_ATTESTATION_PATH ?? "",
+    process.env.SEALEDBENCH_LOCAL_MODEL_PATH ?? "",
     SEAL_CLIENT_SOURCE,
   ].filter(Boolean);
   const existingPaths = new Set<string>();

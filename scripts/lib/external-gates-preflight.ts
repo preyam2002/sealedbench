@@ -32,11 +32,15 @@ function hasPcrEnv(env: Record<string, string | undefined>): boolean {
   );
 }
 
-function hasModelApi(env: Record<string, string | undefined>): boolean {
+function hasModelAccess(
+  env: Record<string, string | undefined>,
+  existingPaths: Set<string>,
+): boolean {
   return (
     hasValue(env.ANTHROPIC_API_KEY) ||
     hasValue(env.OPENAI_API_KEY) ||
-    hasValue(env.OPENAI_COMPAT_BASE_URL)
+    hasValue(env.OPENAI_COMPAT_BASE_URL) ||
+    existingEnvPath(env, existingPaths, "SEALEDBENCH_LOCAL_MODEL_PATH")
   );
 }
 
@@ -61,7 +65,7 @@ export function checkExternalGates(
     deployment_seed_eval: hasValue(deployment.seedSealedEvalId),
     deployment_enclave_cap: hasValue(deployment.enclaveCapId),
     deployment_clock: hasValue(deployment.clockObjectId),
-    model_api_key: hasModelApi(env),
+    model_api_key: hasModelAccess(env, existingPaths),
     nitro_pcrs:
       hasPcrEnv(env) ||
       existingPaths.has(

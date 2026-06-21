@@ -1,5 +1,5 @@
-import { PACKAGE_ID } from "./config";
-import { suiClient } from "./sui";
+import { ACTIVE_SEALED_EVAL_IDS, PACKAGE_ID } from "./config";
+import { withRpcFallback } from "./sui";
 import type { AttestedScore, LeaderboardRow, SealedEval } from "./types";
 
 // Move vector<u8> in event JSON can arrive as a number[] or a base64 string.
@@ -52,27 +52,40 @@ export function parseAttestedScoreEvent(
 }
 
 export async function fetchSealedEvals(): Promise<SealedEval[]> {
-  const client = suiClient();
-  const events = await client.queryEvents({
-    query: { MoveEventType: `${PACKAGE_ID}::sealed_eval::SealedEvalCreated` },
-    limit: 50,
-    order: "descending",
-  });
+  const events = await withRpcFallback((client) =>
+    client.queryEvents({
+      query: { MoveEventType: `${PACKAGE_ID}::sealed_eval::SealedEvalCreated` },
+      limit: 50,
+      order: "descending",
+    }),
+  );
   return events.data.map((event) => {
     const j = event.parsedJson as Record<string, unknown>;
     return parseSealedEvalEvent(j);
   });
 }
 
+export function filterActiveSealedEvals<T extends { objectId: string }>(
+  evals: T[],
+  activeIds: string[] = ACTIVE_SEALED_EVAL_IDS,
+): T[] {
+  if (activeIds.length === 0) {
+    return evals;
+  }
+  const active = new Set(activeIds.map((id) => id.toLowerCase()));
+  return evals.filter((evalObj) => active.has(evalObj.objectId.toLowerCase()));
+}
+
 export async function fetchAttestedScores(): Promise<AttestedScore[]> {
-  const client = suiClient();
-  const events = await client.queryEvents({
-    query: {
-      MoveEventType: `${PACKAGE_ID}::attested_score::AttestedScorePosted`,
-    },
-    limit: 200,
-    order: "descending",
-  });
+  const events = await withRpcFallback((client) =>
+    client.queryEvents({
+      query: {
+        MoveEventType: `${PACKAGE_ID}::attested_score::AttestedScorePosted`,
+      },
+      limit: 200,
+      order: "descending",
+    }),
+  );
   return events.data.map((event) => {
     const j = event.parsedJson as Record<string, unknown>;
     return parseAttestedScoreEvent(j);
@@ -84,7 +97,7 @@ export async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
     fetchSealedEvals(),
     fetchAttestedScores(),
   ]);
-  return evals.map((evalObj) => ({
+  return filterActiveSealedEvals(evals).map((evalObj) => ({
     eval: evalObj,
     scores: scores.filter((s) => s.sealedEvalId === evalObj.objectId),
   }));

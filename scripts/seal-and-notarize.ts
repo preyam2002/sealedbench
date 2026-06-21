@@ -4,13 +4,14 @@
  * Walrus blobId, the author-supplied training cutoff, and the model target.
  *
  * Usage:
- *   tsx scripts/seal-and-notarize.ts --set <jsonl> [--network testnet]
- *        [--model <target>] [--cutoff <ms>] [--dry-run]
+ *   tsx scripts/seal-and-notarize.ts --model <target> --cutoff <unix-ms>
+ *        [--set <jsonl>] [--network testnet] [--seal-policy <id>] [--dry-run]
  */
 import { Transaction } from "@mysten/sui/transactions";
 import { sealEncryptHeldoutSetFile } from "@sealedbench/seal";
 import { loadDeployment } from "@sealedbench/shared";
 import { putBlob, walrusConfigFromEnv } from "@sealedbench/walrus";
+import { loadEnv } from "./lib/load-env.ts";
 import { createSuiClient, hexToBytes, loadKeypair } from "./lib/sui.ts";
 
 type Args = {
@@ -18,6 +19,7 @@ type Args = {
   network: "testnet" | "mainnet";
   model: string;
   cutoff: number;
+  sealPolicy: string | undefined;
   dryRun: boolean;
 };
 
@@ -27,22 +29,37 @@ function parseArgs(argv: string[]): Args {
     return i >= 0 ? argv[i + 1] : undefined;
   };
   const network = (get("--network") ?? "testnet") as Args["network"];
+  // The model target and training cutoff define the contamination claim, so the
+  // author must state them explicitly — there is no default model or cutoff.
+  const model = get("--model");
+  const cutoff = get("--cutoff");
+  if (!model) {
+    throw new Error("--model <target> is required (the model this set is for)");
+  }
+  if (!cutoff || !Number.isFinite(Number(cutoff))) {
+    throw new Error(
+      "--cutoff <unix-ms> is required (the model's training cutoff)",
+    );
+  }
   return {
     set: get("--set") ?? "fixtures/heldout/sealedbench-v1.jsonl",
     network,
-    model: get("--model") ?? "demo/clean-open-model-2024-10",
-    cutoff: Number.parseInt(get("--cutoff") ?? "1727740800000", 10),
+    model,
+    cutoff: Number.parseInt(cutoff, 10),
+    sealPolicy: get("--seal-policy"),
     dryRun: argv.includes("--dry-run"),
   };
 }
 
 async function main(): Promise<void> {
+  loadEnv();
   const args = parseArgs(process.argv.slice(2));
   const deployment = await loadDeployment(args.network);
   const packageId = deployment.packageId;
 
-  // Per-set IBE identity (the seal_approve gate, finalized in Phase 2). We use a
-  // deterministic identity derived from the set so re-sealing is reproducible.
+  // Per-set IBE identity = sha256(plaintext): seal once to learn that hash, then
+  // re-seal under it, so the identity the key servers gate on is bound to the
+  // exact plaintext (the enclave re-checks id == sha256(plaintext) after decrypt).
   console.log(`[1/3] Seal-encrypting ${args.set} (network=${args.network})...`);
   const provisionalIdentity = `0x${"00".repeat(16)}`;
   const sealed = await sealEncryptHeldoutSetFile(args.set, {
@@ -90,8 +107,10 @@ async function main(): Promise<void> {
       tx.pure.vector("u8", Array.from(hexToBytes(result.sha256Plaintext))),
       tx.pure.vector("u8", Array.from(hexToBytes(result.sha256Ciphertext))),
       tx.pure.string(blobId),
-      // Phase 1 placeholder policy id (packageId); Phase 2 binds the Enclave.
-      tx.pure.id(packageId),
+      // The release-policy object recorded on the SealedEval. Defaults to the
+      // package (the seal_policy module that gates release); pass --seal-policy
+      // <id> to bind the registered Enclave object once G2 is live.
+      tx.pure.id(args.sealPolicy ?? packageId),
       tx.pure.string(args.model),
       tx.pure.u64(BigInt(result.itemCount)),
       tx.pure.u64(BigInt(args.cutoff)),

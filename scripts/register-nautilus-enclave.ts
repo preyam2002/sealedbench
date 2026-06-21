@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { Transaction } from "@mysten/sui/transactions";
 import { fromBase64 } from "@mysten/sui/utils";
 import { loadDeployment } from "@sealedbench/shared";
+import { loadEnv } from "./lib/load-env.ts";
 import {
   type Pcrs,
   parseRegisterEnclaveArgs,
@@ -71,6 +72,7 @@ function findCreatedObject(
 }
 
 async function main(): Promise<void> {
+  loadEnv();
   const args = parseRegisterEnclaveArgs(process.argv.slice(2));
   const deployment = await loadDeployment(args.network);
   const packageId = deployment.packageId;

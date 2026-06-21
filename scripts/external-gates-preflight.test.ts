@@ -57,6 +57,26 @@ describe("checkExternalGates", () => {
     expect(result.blockers).toEqual([]);
   });
 
+  test("local oss model artifact satisfies model gate", () => {
+    const result = checkExternalGates({
+      env: {
+        SEALEDBENCH_LOCAL_MODEL_PATH:
+          "enclave/models/smollm2-135m-instruct-q2_k.gguf",
+        SEALEDBENCH_ATTESTATION_PATH: "attestation.json",
+      },
+      deployment,
+      existingPaths: new Set([
+        "enclave/models/smollm2-135m-instruct-q2_k.gguf",
+        "enclave/out/pcr-values.json",
+        "attestation.json",
+        "enclave/src/seal_client.rs",
+      ]),
+    });
+
+    expect(result.ready).toBe(true);
+    expect(result.checks.model_api_key).toBe(true);
+  });
+
   test("accepts PCR and attestation values from env", () => {
     const pcr = "a".repeat(96);
     const result = checkExternalGates({

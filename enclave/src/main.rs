@@ -17,6 +17,8 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
+use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+
 use sealedbench_enclave::attestation::nitro_attestation_document;
 use sealedbench_enclave::http_model::{AnthropicMessagesClient, OpenAiCompatClient};
 use sealedbench_enclave::seal_client::{fetch_and_decrypt, SealedItemsRequest};
@@ -54,16 +56,19 @@ async fn health_check() -> Json<Health> {
 struct Attestation {
     public_key: String,
     mode: &'static str,
-    attestation_document: Option<String>,
+    /// Base64 COSE attestation document (the encoding `scripts/register-
+    /// nautilus-enclave.ts` reads and `0x2::nitro_attestation` verifies on-chain).
+    /// `null` outside a Linux Nitro enclave.
+    attestation: Option<String>,
 }
 
 async fn get_attestation(State(state): State<AppState>) -> Json<Attestation> {
     let pk = state.key.public_key_bytes();
-    let doc = nitro_attestation_document(&pk).ok().map(hex::encode);
+    let doc = nitro_attestation_document(&pk).ok().map(|bytes| B64.encode(bytes));
     Json(Attestation {
         public_key: hex::encode(pk),
         mode: attestation_mode(),
-        attestation_document: doc,
+        attestation: doc,
     })
 }
 
@@ -112,6 +117,47 @@ fn normalize_model_provider(value: Option<&str>) -> Result<ModelProvider, String
         "anthropic" | "claude" => Ok(ModelProvider::Anthropic),
         provider => Err(format!("unsupported model_provider {provider}")),
     }
+}
+
+fn non_empty_env(key: &str) -> Option<String> {
+    std::env::var(key).ok().filter(|value| !value.is_empty())
+}
+
+/// The model target baked into the measured image (and therefore the PCRs).
+/// When `endpoint` is set, an attested score is provably produced against THIS
+/// endpoint/model — the request may only supply the api_key, never redirect the
+/// enclave at a different model. Empty (local dev / unattested) -> the request's
+/// own endpoint/model/provider are used.
+struct BakedModel {
+    endpoint: Option<String>,
+    model: Option<String>,
+    provider: Option<String>,
+}
+
+fn baked_model() -> BakedModel {
+    BakedModel {
+        endpoint: non_empty_env("SEALEDBENCH_MODEL_ENDPOINT"),
+        model: non_empty_env("SEALEDBENCH_MODEL_ID"),
+        provider: non_empty_env("SEALEDBENCH_MODEL_PROVIDER"),
+    }
+}
+
+/// Resolve the endpoint/model/provider the enclave will actually dial: a baked
+/// (measured) value wins over the request, so the attestation binds the model
+/// target rather than trusting the caller.
+fn resolve_model_target(
+    baked: BakedModel,
+    req_endpoint: &str,
+    req_model: &str,
+    req_provider: Option<&str>,
+) -> (String, String, Option<String>) {
+    (
+        baked.endpoint.unwrap_or_else(|| req_endpoint.to_string()),
+        baked.model.unwrap_or_else(|| req_model.to_string()),
+        baked
+            .provider
+            .or_else(|| req_provider.map(str::to_string)),
+    )
 }
 
 fn parse_id_hex(value: &str) -> Result<[u8; 32], String> {
@@ -180,17 +226,25 @@ async fn evaluate_handler(
     // oneshot channel.
     let (tx, rx) = tokio::sync::oneshot::channel();
     std::thread::spawn(move || {
-        let result = normalize_model_provider(req.model_provider.as_deref()).and_then(|provider| {
+        // A baked (measured) endpoint/model wins over the request; only the
+        // api_key is ever taken from the caller.
+        let (endpoint, model_id, provider_str) = resolve_model_target(
+            baked_model(),
+            &req.endpoint,
+            &req.model,
+            req.model_provider.as_deref(),
+        );
+        let result = normalize_model_provider(provider_str.as_deref()).and_then(|provider| {
             let model: Box<dyn ModelClient> = match provider {
                 ModelProvider::OpenAiCompat => Box::new(OpenAiCompatClient::new(
-                    req.endpoint.clone(),
+                    endpoint.clone(),
                     req.api_key.clone(),
-                    req.model.clone(),
+                    model_id.clone(),
                 )),
                 ModelProvider::Anthropic => Box::new(AnthropicMessagesClient::new(
-                    req.endpoint.clone(),
+                    endpoint.clone(),
                     req.api_key.clone(),
-                    req.model.clone(),
+                    model_id.clone(),
                 )),
             };
             run_evaluate(&req, model.as_ref(), &key)
@@ -217,6 +271,13 @@ async fn main() {
     tracing_subscriber::fmt::init();
     let key = Arc::new(EnclaveKey::generate());
     tracing::info!(pubkey = %key.public_key_hex(), mode = attestation_mode(), "enclave key ready");
+    let baked = baked_model();
+    tracing::info!(
+        model_endpoint = baked.endpoint.as_deref().unwrap_or("<request-supplied>"),
+        model_id = baked.model.as_deref().unwrap_or("<request-supplied>"),
+        model_provider = baked.provider.as_deref().unwrap_or("<request-supplied>"),
+        "model target"
+    );
     let state = AppState { key };
     let addr = std::env::var("ENCLAVE_ADDR").unwrap_or_else(|_| "0.0.0.0:3000".to_string());
     let listener = tokio::net::TcpListener::bind(&addr)
@@ -304,6 +365,36 @@ mod tests {
         );
     }
 
+    #[test]
+    fn baked_model_target_overrides_request() {
+        // The measured image pins the endpoint; a caller cannot redirect the
+        // attested enclave at a different model — only the api_key is theirs.
+        let baked = BakedModel {
+            endpoint: Some("https://api.anthropic.com".to_string()),
+            model: Some("claude-opus-4-8".to_string()),
+            provider: Some("anthropic".to_string()),
+        };
+        let (endpoint, model, provider) =
+            resolve_model_target(baked, "http://evil.example", "evil-model", Some("openai"));
+        assert_eq!(endpoint, "https://api.anthropic.com");
+        assert_eq!(model, "claude-opus-4-8");
+        assert_eq!(provider.as_deref(), Some("anthropic"));
+    }
+
+    #[test]
+    fn unbaked_model_target_uses_request() {
+        let baked = BakedModel {
+            endpoint: None,
+            model: None,
+            provider: None,
+        };
+        let (endpoint, model, provider) =
+            resolve_model_target(baked, "http://127.0.0.1:3930", "demo", Some("openai"));
+        assert_eq!(endpoint, "http://127.0.0.1:3930");
+        assert_eq!(model, "demo");
+        assert_eq!(provider.as_deref(), Some("openai"));
+    }
+
     #[tokio::test]
     async fn get_attestation_exposes_pubkey() {
         let res = app(state())
@@ -321,7 +412,7 @@ mod tests {
         // off-Linux: pubkey present, no Nitro document
         assert_eq!(json["public_key"].as_str().unwrap().len(), 64);
         assert_eq!(json["mode"], "local-unattested");
-        assert!(json["attestation_document"].is_null());
+        assert!(json["attestation"].is_null());
     }
 
     #[test]

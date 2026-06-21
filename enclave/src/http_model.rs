@@ -15,6 +15,7 @@ struct ChatMessage<'a> {
 struct ChatRequest<'a> {
     model: &'a str,
     temperature: f32,
+    max_tokens: u32,
     messages: Vec<ChatMessage<'a>>,
 }
 
@@ -79,6 +80,7 @@ pub fn build_request_body(model: &str, system: &str, user: &str) -> serde_json::
     serde_json::to_value(ChatRequest {
         model,
         temperature: 0.0,
+        max_tokens: 32,
         messages: vec![
             ChatMessage {
                 role: "system",
@@ -229,6 +231,7 @@ mod tests {
     fn request_body_pins_temperature_zero() {
         let body = build_request_body("gpt-x", "be terse", "2+2?");
         assert_eq!(body["temperature"], 0.0);
+        assert_eq!(body["max_tokens"], 32);
         assert_eq!(body["model"], "gpt-x");
         assert_eq!(body["messages"][0]["role"], "system");
         assert_eq!(body["messages"][1]["content"], "2+2?");

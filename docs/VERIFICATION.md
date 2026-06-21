@@ -12,18 +12,18 @@ explicit; do not treat them as production Nitro/Seal proof.
 | Move package | `0x9f6c9b056485a707d6bb8f6b5d810104cf1c44752899eef5378b5e12167bae4f` |
 | UpgradeCap | `0x7dc07b18cee10a051b23192bed99e31b333878ab0b7af3cc3417eac25100cb8c` |
 | Enclave Cap | `0x147c132bad4b40574e6717126309bd6e32d8f42b780c1dc925948876648a6017` |
-| SealedEval (seed v1) | `0x758aab4a1ecbb5dab258af6a42a9208562038df125df0fd667572c06e62a77c6` |
+| SealedEval (seed v1) | `0xc03afb12f03da17ce90ef334b740e3bde5e80995606f7558da2c629fb97d6474` |
 | Publish tx | `4LxxArqDNs5RmysvR7UyJB8EHDGPPnQEGKbEViNmQvLu` |
-| Create tx | `BPEnFv3iF7kyL6NVuFbu5AQ3xHScg61yGA3LadJBC9Sm` |
-| Walrus ciphertext blob | `T8KX29uMz18IWrYxgTAm9sfFrIgBCIJg5KDhG_6MLNQ` |
+| Create tx | `D6XEKsnLderoCpJyF21RgAYbsbdY85LSQwyMETWAXsqd` |
+| Walrus ciphertext blob | `0qirQS37ujigOoWCNzSuM97IseB-OtDt1XR2StJNNto` |
 | sha256(plaintext) | `45da3c9554f9dfbf128e2de6416beb6b99703b718495041354669f899545701f` |
 
-## Test matrix (92 tests, 3 languages)
+## Test matrix
 
 ```bash
-pnpm test                       # 48 vitest (web 11, shared 4, walrus 3, seal 3, scripts 27)
+pnpm test
 pnpm move:test                  # 10 sui move tests
-cd enclave && cargo test        # 34 cargo tests
+cd enclave && cargo test        # 36 cargo tests
 ```
 
 `SEALEDBENCH_SKIP_NETWORK=1 pnpm test` skips the live-testnet round-trips for
@@ -97,19 +97,31 @@ threshold key verification, and full EncryptedObject decryption — byte-matches
 the TS SDKs the repo seals with (`fixtures/seal-vectors.json`).
 
 **Gated (needs external resources):**
-- Real model scores → `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` (or any
-  OpenAI-compatible endpoint). Native Anthropic Messages API + prompt caching is
-  implemented, but not exercised without a key.
-- On-chain `AttestedScore` → a registered `Enclave` object. The package,
-  `SEALEDBENCH` witness, enclave Cap, registration script, pk assertion script,
-  and post_score argument builder are built; registration still needs a real AWS
-  Nitro attestation document from the enclave EIF.
+- On-chain `AttestedScore` → a registered SealedBench `Enclave` object. The EIF
+  has been built with the local OSS model and real PCRs, but the shared Nitro
+  host cannot run it concurrently with Aegis because Aegis consumes both
+  allocated enclave CPUs.
+- Nitro attestation → start the SealedBench EIF and fetch `/get_attestation`.
+  Current `pnpm preflight:gates` blocker is only `nitro_attestation` when
+  `SEALEDBENCH_LOCAL_MODEL_PATH` points to the verified GGUF.
 - Live Seal key release → the key servers dry-run `seal_approve` against the
   registered enclave object, so exercising `--sealed` end-to-end on testnet
   waits on that same registration.
 
 Run `pnpm preflight:gates` to check the exact missing external inputs on the
 current machine.
+
+Dry-run the guarded shared-host sequence without stopping Aegis:
+
+```bash
+pnpm live:nitro-run --dry-run --sealed-eval <sealed-eval-id>
+pnpm live:nitro-run --dry-run --setup-frontend --sealed-eval <sealed-eval-id>
+```
+
+The real wrapper requires `SEALEDBENCH_ALLOW_AEGIS_STOP=true`; it starts
+SealedBench, registers attestation, and restores Aegis in a `finally` block.
+Use `--setup-frontend` to hold the tunnel open while the frontend triggers the
+run.
 
 ## Precise claims (do not conflate)
 

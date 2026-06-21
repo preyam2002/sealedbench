@@ -27,3 +27,17 @@ export type LeaderboardRow = {
   eval: SealedEval;
   scores: AttestedScore[];
 };
+
+export type RunJobStatus = "queued" | "running" | "complete" | "failed";
+
+export type RunJob = {
+  id: string;
+  evalId: string;
+  status: RunJobStatus;
+  logs: string[];
+  scoreId?: string;
+  digest?: string;
+  error?: string;
+  createdAt: number;
+  updatedAt: number;
+};

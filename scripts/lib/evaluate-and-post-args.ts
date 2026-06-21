@@ -2,7 +2,10 @@ export type EvaluateAndPostArgs = {
   sealedEval: string | undefined;
   enclave: string;
   endpoint: string;
-  model: string;
+  /** Model id to dial. Undefined -> fall back to the SealedEval's declared
+   * model_target (read from chain); the baked enclave endpoint overrides this in
+   * the attested path. */
+  model: string | undefined;
   provider: "openai" | "anthropic";
   apiKey: string;
   set: string;
@@ -26,7 +29,7 @@ export function parseEvaluateAndPostArgs(argv: string[]): EvaluateAndPostArgs {
     sealedEval,
     enclave: value(argv, "--enclave") ?? "http://127.0.0.1:3000",
     endpoint: value(argv, "--endpoint") ?? "http://127.0.0.1:3930",
-    model: value(argv, "--model") ?? "demo",
+    model: value(argv, "--model"),
     provider: (value(argv, "--provider") ?? "openai") as "openai" | "anthropic",
     apiKey:
       value(argv, "--api-key") ??
@@ -68,4 +71,8 @@ export function assertEvaluateAndPostMode(args: EvaluateAndPostArgs): void {
       "local evaluation sends decrypted items_jsonl to /evaluate; pass --allow-plaintext-items to acknowledge this is not the production Seal key-release path (or use --sealed)",
     );
   }
+}
+
+export function postScoreTypeArguments(_typeArg: string | undefined): string[] {
+  return [];
 }

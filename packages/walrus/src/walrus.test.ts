@@ -1,14 +1,41 @@
 import { randomBytes } from "node:crypto";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { walrusConfigFromEnv } from "./config.ts";
 import { getBlob, putBlob } from "./index.ts";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("walrus config", () => {
   test("defaults to testnet endpoints with mandatory epochs", () => {
     const config = walrusConfigFromEnv({});
     expect(config.network).toBe("testnet");
     expect(config.publisherUrl).toContain("walrus-testnet");
-    expect(config.epochs).toBeGreaterThan(0);
+    expect(config.epochs).toBe(53);
+  });
+
+  test("PUT uses durable permanent storage by default", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => {
+      return new Response(
+        JSON.stringify({
+          newlyCreated: { blobObject: { blobId: "abc_DEF-123" } },
+        }),
+        { status: 200 },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(putBlob(new Uint8Array([1, 2, 3]))).resolves.toMatchObject({
+      blobId: "abc_DEF-123",
+      alreadyCertified: false,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(url.searchParams.get("epochs")).toBe("53");
+    expect(url.searchParams.get("permanent")).toBe("true");
   });
 
   test("rejects non-positive epochs on store", async () => {

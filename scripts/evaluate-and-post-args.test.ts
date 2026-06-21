@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   assertEvaluateAndPostMode,
   parseEvaluateAndPostArgs,
+  postScoreTypeArguments,
 } from "./lib/evaluate-and-post-args.ts";
 
 describe("parseEvaluateAndPostArgs", () => {
@@ -103,5 +104,11 @@ describe("parseEvaluateAndPostArgs", () => {
       "--allow-plaintext-items",
     ]);
     expect(() => assertEvaluateAndPostMode(args)).toThrow(/mutually exclusive/);
+  });
+
+  test("post_score is not generic", () => {
+    expect(postScoreTypeArguments("0xabc::attestation::SEALEDBENCH")).toEqual(
+      [],
+    );
   });
 });

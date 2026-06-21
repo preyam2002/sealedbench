@@ -8,7 +8,14 @@ export type Deployment = {
   packageId: string;
   enclavePackageId?: string;
   enclaveCapId?: string;
+  registeredEnclaveId?: string;
+  registeredEnclavePk?: string;
   seedSealedEvalId?: string;
+  activeSealedEvalIds?: string[];
+  attestedScoreId?: string;
+  attestedScoreDigest?: string;
+  traceBlobId?: string;
+  traceItemsHash?: string;
   seedWalrusBlobId?: string;
   seedCreateDigest?: string;
   seedPlaintextHash?: string;

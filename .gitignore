@@ -13,3 +13,18 @@ move/**/build/
 # rust
 target/
 next-env.d.ts
+
+# generated enclave build artifacts (manifest, EIF, PCRs — regenerated on the box)
+enclave/out/
+
+# downloaded model weights; fetched and hash-verified by scripts/fetch-oss-model.ts
+enclave/models/*.gguf
+enclave/prebuilt/
+
+# private keys / local secrets (defense in depth — keys live outside the repo)
+*.pem
+*.key
+
+# assistant process scaffolding (not part of the project)
+docs/superpowers/
+.claude/

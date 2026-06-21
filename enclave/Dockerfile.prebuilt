@@ -1,0 +1,28 @@
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates socat iproute2 libgomp1 libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG SEALEDBENCH_MODEL_ENDPOINT="http://127.0.0.1:8081"
+ARG SEALEDBENCH_MODEL_ID="smollm2-135m-instruct-q2_k"
+ARG SEALEDBENCH_MODEL_PROVIDER="openai"
+ARG SEALEDBENCH_GGUF_PATH="/models/smollm2-135m-instruct-q2_k.gguf"
+ENV SEALEDBENCH_MODEL_ENDPOINT=${SEALEDBENCH_MODEL_ENDPOINT} \
+    SEALEDBENCH_MODEL_ID=${SEALEDBENCH_MODEL_ID} \
+    SEALEDBENCH_MODEL_PROVIDER=${SEALEDBENCH_MODEL_PROVIDER} \
+    SEALEDBENCH_GGUF_PATH=${SEALEDBENCH_GGUF_PATH} \
+    SEALEDBENCH_LLAMA_PORT=8081 \
+    ENCLAVE_PORT=3000 \
+    LD_LIBRARY_PATH=/opt/llama
+
+COPY out/proxy-manifest.txt /etc/sealedbench/proxy-manifest.txt
+COPY models/smollm2-135m-instruct-q2_k.gguf /models/smollm2-135m-instruct-q2_k.gguf
+COPY run.sh /usr/local/bin/run.sh
+COPY prebuilt/llama-b9701 /opt/llama
+COPY prebuilt/sealedbench-enclave-server /usr/local/bin/sealedbench-enclave-server
+RUN ln -s /opt/llama/llama-server /usr/local/bin/llama-server \
+    && chmod +x /usr/local/bin/run.sh /usr/local/bin/sealedbench-enclave-server /opt/llama/llama-server
+
+EXPOSE 3000
+ENTRYPOINT ["/usr/local/bin/run.sh"]

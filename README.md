@@ -51,14 +51,14 @@ SealedBench reuses the same primitives as two strong projects, and is none of th
 
 ## What's actually built (honest scope)
 
-This is a **from-scratch build in ~17 days** (deadline **21 June 2026 PT**) launching next to polished prior art using the same primitives. So the plan is staged hard:
+Built from scratch for the **21 June 2026 PT** deadline. As of submission everything below is **live on Sui testnet** and independently verifiable — not a roadmap:
 
-- **Phase 1 — submittable core (no TEE).** `SealedEval` Move object + Seal-encrypt a real held-out set to Walrus + on-chain SHA-256 + cutoff timestamp + the **seal-before-cutoff provenance demo**. This alone is a coherent Walrus-track submission.
-- **Phase 2 — the differentiator (the moat).** The **Nautilus-attested evaluator**: Seal releases the key *only* to the registered enclave, which decrypts + scores + posts an attested result. This is what nobody else has, and it reuses a co-signer enclave the author already built and registered on Sui (see `BUILD_PLAN.md`).
-- **Phase 3** — leaderboard UI, multi-model, run traces on Walrus.
-- **Phase 4** — polish, demo video, DeepSurge submission.
+- **Phase 1 — sealed provenance (done).** `SealedEval` Move objects: a real held-out set Seal-encrypted to Walrus, with its SHA-256 fingerprint and cutoff timestamp notarized on Sui. Anyone can re-hash the Walrus ciphertext in their own browser and check it against the chain — the leaderboard does exactly that, live.
+- **Phase 2 — the moat: attested in-enclave scoring (done).** A Rust **Nautilus TEE** enclave, registered on-chain with measured PCRs, is the *only* party Seal releases the decryption key to. It decrypts the set in-memory, scores the target through an OpenAI-compatible endpoint, archives the full run trace to Walrus, and posts an enclave-**signed** `AttestedScore` on Sui. A genuine attested run is live on testnet — `oss/smollm2-135m-instruct-q2k`, **27/50**, signed by the registered enclave (the signer key matches the on-chain `Enclave` object — verify it yourself).
+- **Phase 3 — verifiable leaderboard (done).** Next.js 16 / React 19 reading live Sui events: per-eval seal-before-cutoff provenance, in-browser Walrus ciphertext **and** run-trace re-hashing, and the attested score with its signer.
+- **Phase 4 — mainnet (next).** Walrus, Seal, and Nautilus are all mainnet-live; ~50% of judging is real-world impact and **half the prize unlocks on mainnet**, which is the cutover target.
 
-~50% of judging is real-world impact, and **half the prize unlocks on mainnet**; Walrus, Seal, and Nautilus are all mainnet-live, so SealedBench targets mainnet.
+The scorer is a **real, baked, PCR-measured open model** (SmolLM2-135M) running inside the enclave — there is no keyless or external grader. The two-model "contamination collapse" headline is the next sealed pair; the infrastructure that makes such a comparison *trustworthy* is what is built and proven here.
 
 ## Precisely what is and isn't proven
 

@@ -1,28 +1,110 @@
-# SealedBench — demo script (≤4 min)
+# SealedBench — demo script
 
-The money shot: contamination caught **and** the catch proven honest, with every
-id resolvable on-chain.
+The live frontend is the demo surface. It shows four real testnet `SealedEval`
+objects, one real posted `AttestedScore`, browser-side Walrus hash
+verification, trace verification, and a server-side **Run in enclave** path
+wired to the running SealedBench Nitro enclave.
 
-| t | Action | What the audience sees |
-|---|--------|------------------------|
-| 0:00 | The problem | "Benchmark scores are lies if the test leaked, and labs grade their own homework. We close both." |
-| 0:20 | The sealed set on-chain | `SealedEval 0x758aab4a…` on the explorer: sha256, Walrus blobId, `sealed_at_ms`, `cutoff_ts_ms`. Run `verify-provenance.ts` live → ciphertext MATCH ✓, model cutoff precedes the seal. |
-| 1:00 | Two models | Model A (post-cutoff, plausibly contaminated, high public score) vs Model B (open, public checkpoint *before* the seal — provably could not have memorized it). |
-| 1:20 | Attested eval | Production path: `evaluate-and-post.ts` → the enclave fetches the Seal key, decrypts in-memory, archives the run trace to Walrus, and signs a ScorePayload. Local fallback: run it with `--allow-plaintext-items` and say it is not the production key-release proof. |
-| 2:20 | Verify the catch | `verify-trace.ts` → the Walrus trace's sha256 equals the on-chain `items_hash`. The grading is auditable, prompt by prompt. |
-| 2:50 | The reveal | Leaderboard: Model A's sealed-set score **collapses** vs its public number; Model B holds. Badges: provenance ✓ + attested-honest ✓. |
-| 3:30 | The pitch | A benchmark number labs *and* regulators can verify (EU AI Act model-evaluation records). Distinct from TOLDPROOF (predictions, no TEE) and Walmarket (market oracle): SealedBench = TEE-attested custody + honest scoring of held-out benchmark sets. |
+Current demo mode temporarily pauses Aegis on the shared Nitro host. The host
+allocator reserves only CPUs `1,3`, and a Nitro enclave consumes its assigned
+CPUs exclusively, so Aegis and SealedBench cannot both run on this host at the
+same time without a larger/reconfigured instance.
 
-## Live-run notes
+## Manual Frontend Demo
 
-- Pre-start the enclave: `cd enclave && ENCLAVE_ADDR=0.0.0.0:3000 cargo run --bin sealedbench-enclave-server`.
-- Keyless model endpoints for the two-model story:
-  `pnpm tsx tools/demo-model-server.ts --port 3930 --knows 0.7` (clean) and
-  `--port 3929 --knows 1.0` (contaminated). Real OpenAI-compatible wire
-  protocol; swap in real `--endpoint`/`--api-key` once G1 is unblocked.
-- Leaderboard: `pnpm -F @sealedbench/web dev`.
-- The fully-attested run (real Nitro + model key + in-enclave Seal decrypt) is
-  the production path. The local-unattested mode demos scoring/signing/trace
-  commitment only; state clearly which mode is showing.
-- Backup: pre-recorded run + cached ids in `docs/VERIFICATION.md` in case of live
-  RPC/enclave hiccups.
+Open the built frontend:
+
+```text
+http://localhost:3012
+```
+
+Demo flow:
+
+1. Show the top stats: `testnet`, `Sealed benchmarks: 4`, `Attested scores: 1`.
+2. Scroll to **The ledger**.
+3. Select **Eval-01**. It should show `1 attested honest run ✓` and the score
+   `27/50 · 54%`.
+4. Click **Verify blob** on the selected eval.
+5. Show `MATCH`: the browser fetched the ciphertext from Walrus, hashed it, and
+   matched the on-chain Sui hash.
+6. Click **Verify trace** on the posted score. It should match the on-chain
+   `items_hash`.
+7. Open `score↗` and `trace↗` if you want to show the raw Sui object and Walrus
+   trace blob.
+8. Click **Run in enclave** only if you want to run another live scoring job.
+   It will use the currently running Nitro tunnel and can post an additional
+   `AttestedScore`.
+
+Live proof ids:
+
+| | |
+|---|---|
+| SealedEval | `0x8a3852f8d57fd738d35589ca42f3f0a96e6d76b0ace49409efafe76943960222` |
+| Registered enclave | `0x50570041a718078ef51044328a23f2d00fa637353cc92e233d94d959461f7a1e` |
+| Enclave public key | `d94d6b4a41b7d083a5940709f3d04c672ed7e5cecdb4c45e7cfce76e8232ee2d` |
+| AttestedScore | `0x4e563e5549e419cb213e97fb53e5b8701996b131b0187906f38f3fd7ecd3caff` |
+| post_score digest | `FN3JW6Be3D871SSeT4QMkKKa47exGSnEVmVr9AtahRoy` |
+| Trace blob | `hCunq9O1tUfbdZJi-4FKKHXlc4Zwncp0T66YLlZvcrk` |
+| items_hash | `d4a03e29ea1cda60806b385b31c07bd6c7354a9cd1b1bf0e8b6552bde3e64c2d` |
+
+## Nitro Status
+
+The real SealedBench EIF has been built on the AWS Nitro host with:
+
+- pinned SmolLM2 GGUF model baked into the image
+- pinned llama.cpp release binary baked into the image
+- Walrus + Seal outbound manifest baked into the image
+- PCR evidence copied to `enclave/out/pcr-values.json`
+
+Trace proof:
+
+```bash
+pnpm tsx scripts/verify-trace.ts \
+  0x4e563e5549e419cb213e97fb53e5b8701996b131b0187906f38f3fd7ecd3caff \
+  --network testnet
+```
+
+Expected:
+
+```text
+output contains MATCH
+```
+
+Dry-run the full guarded operator sequence without touching remote state:
+
+```bash
+pnpm live:nitro-run --dry-run \
+  --setup-frontend \
+  --sealed-eval 0x8a3852f8d57fd738d35589ca42f3f0a96e6d76b0ace49409efafe76943960222
+```
+
+## Full Demo Setup
+
+If the current local tunnel or web server is not running, use the guarded EC2
+setup. It pauses Aegis, starts SealedBench, registers the current Nitro
+attestation, opens the local tunnel, asserts the public key, and prints the
+exact web env:
+
+```bash
+SEALEDBENCH_ALLOW_AEGIS_STOP=true pnpm live:nitro-run \
+  --setup-frontend \
+  --sealed-eval 0x8a3852f8d57fd738d35589ca42f3f0a96e6d76b0ace49409efafe76943960222
+```
+
+Leave that process running while testing. In another terminal, start the web app
+with the registered enclave id printed by the script. For the current live demo
+object:
+
+```bash
+SEALEDBENCH_ENABLE_RUNS=true \
+SEALEDBENCH_ENCLAVE_URL=http://127.0.0.1:3321 \
+SEALEDBENCH_ENCLAVE_OBJECT_ID=0x50570041a718078ef51044328a23f2d00fa637353cc92e233d94d959461f7a1e \
+SEALEDBENCH_REPO_ROOT=/Users/preyam/repo/sealedbench \
+NEXT_PUBLIC_ENCLAVE_PK=d94d6b4a41b7d083a5940709f3d04c672ed7e5cecdb4c45e7cfce76e8232ee2d \
+pnpm --dir apps/web exec next start --port 3012
+```
+
+When finished with the Nitro demo, stop the setup wrapper with `Ctrl-C`; it
+restores Aegis in `finally`. If the wrapper is not the process holding
+SealedBench, restore manually from the remote host with
+`./shared-host-switchover.sh restore-aegis`.

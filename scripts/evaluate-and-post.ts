@@ -29,7 +29,9 @@ import { getBlob, walrusConfigFromEnv } from "@sealedbench/walrus";
 import {
   assertEvaluateAndPostMode,
   parseEvaluateAndPostArgs,
+  postScoreTypeArguments,
 } from "./lib/evaluate-and-post-args.ts";
+import { loadEnv } from "./lib/load-env.ts";
 import {
   parseSealedEvalCommitmentFields,
   verifyPlaintextSetAgainstCommitment,
@@ -37,6 +39,7 @@ import {
 import { createSuiClient, hexToBytes, loadKeypair } from "./lib/sui.ts";
 
 async function main(): Promise<void> {
+  loadEnv();
   const args = parseEvaluateAndPostArgs(process.argv.slice(2));
   assertEvaluateAndPostMode(args);
   const deployment = await loadDeployment(args.network);
@@ -61,6 +64,18 @@ async function main(): Promise<void> {
   const commitment = parseSealedEvalCommitmentFields(
     content.fields as Record<string, unknown>,
   );
+
+  // The score's model_target is bound to the SealedEval's own declared target
+  // (read from chain) — never a CLI default — so the posted score names exactly
+  // the model the set was sealed for. --model only chooses which model to dial
+  // locally; the attested path overrides it with the baked enclave endpoint.
+  const declaredModelTarget = String(
+    (content.fields as Record<string, unknown>).model_target ?? "",
+  );
+  if (!declaredModelTarget) {
+    throw new Error(`SealedEval ${sealedEval} has no model_target on-chain`);
+  }
+  const dialedModel = args.model ?? declaredModelTarget;
 
   let itemsField: Record<string, unknown>;
   if (args.sealed) {
@@ -118,9 +133,9 @@ async function main(): Promise<void> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       sealed_eval_id: sealedEval,
-      model_target: args.model,
+      model_target: declaredModelTarget,
       endpoint: args.endpoint,
-      model: args.model,
+      model: dialedModel,
       model_provider: args.provider,
       api_key: args.apiKey,
       system: "Answer the question concisely.",
@@ -189,7 +204,7 @@ async function main(): Promise<void> {
     const tx = new Transaction();
     tx.moveCall({
       target: postArgs.target,
-      typeArguments: [postArgs.type_arg],
+      typeArguments: postScoreTypeArguments(postArgs.type_arg),
       arguments: [
         tx.object(args.enclaveObject),
         tx.object(sealedEval),

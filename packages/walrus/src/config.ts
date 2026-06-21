@@ -7,6 +7,8 @@ export type WalrusConfig = {
   epochs: number;
 };
 
+export const DEFAULT_WALRUS_EPOCHS = 53;
+
 // Public Walrus HTTP endpoints. `epochs` is mandatory on store; a testnet
 // epoch is ~1 day, mainnet ~2 weeks.
 const ENDPOINTS: Record<
@@ -29,7 +31,10 @@ export function walrusConfigFromEnv(
   const network: WalrusNetwork =
     env.SUI_NETWORK === "mainnet" ? "mainnet" : "testnet";
   const defaults = ENDPOINTS[network];
-  const epochs = Number.parseInt(env.WALRUS_EPOCHS ?? "5", 10);
+  const epochs = Number.parseInt(
+    env.WALRUS_EPOCHS ?? String(DEFAULT_WALRUS_EPOCHS),
+    10,
+  );
 
   return {
     network,

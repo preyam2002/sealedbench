@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { parseAttestedScoreEvent } from "./queries";
+import { filterActiveSealedEvals, parseAttestedScoreEvent } from "./queries";
 
 describe("parseAttestedScoreEvent", () => {
   test("maps trace commitment fields from AttestedScorePosted events", () => {
@@ -27,5 +27,20 @@ describe("parseAttestedScoreEvent", () => {
       enclavePk: "0xabcd",
       postedAtMs: 1780000000000,
     });
+  });
+});
+
+describe("filterActiveSealedEvals", () => {
+  test("keeps only active deployment records when configured", () => {
+    const evals = [
+      { objectId: "0xold", walrusBlobId: "expired" },
+      { objectId: "0xactive", walrusBlobId: "live" },
+    ];
+
+    expect(
+      filterActiveSealedEvals(evals as never, ["0xactive"]).map(
+        (evalObj) => evalObj.objectId,
+      ),
+    ).toEqual(["0xactive"]);
   });
 });

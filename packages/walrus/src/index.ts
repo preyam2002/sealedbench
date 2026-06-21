@@ -6,6 +6,7 @@ export { walrusConfigFromEnv };
 export type PutBlobOptions = {
   config?: WalrusConfig;
   epochs?: number;
+  permanent?: boolean;
   retries?: number;
   retryDelayMs?: number;
 };
@@ -35,13 +36,18 @@ export async function putBlob(
 ): Promise<PutBlobResult> {
   const config = options.config ?? walrusConfigFromEnv();
   const epochs = options.epochs ?? config.epochs;
+  const permanent = options.permanent ?? true;
   const retries = options.retries ?? 0;
   const retryDelayMs = options.retryDelayMs ?? 1500;
   if (!Number.isInteger(epochs) || epochs < 1) {
     throw new Error(`walrus: epochs must be a positive integer, got ${epochs}`);
   }
 
-  const url = `${config.publisherUrl}/v1/blobs?epochs=${epochs}`;
+  const url = new URL("/v1/blobs", config.publisherUrl);
+  url.searchParams.set("epochs", String(epochs));
+  if (permanent) {
+    url.searchParams.set("permanent", "true");
+  }
   let lastError = "";
   for (let attempt = 0; attempt <= retries; attempt++) {
     // Copy into a fresh ArrayBuffer-backed view so the body is a valid BodyInit
@@ -76,7 +82,7 @@ export async function putBlob(
       await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     }
   }
-  throw new Error(`walrus put failed for ${url}: ${lastError}`);
+  throw new Error(`walrus put failed for ${url.toString()}: ${lastError}`);
 }
 
 /** Read a blob back from Walrus by blobId, returning the raw bytes. */

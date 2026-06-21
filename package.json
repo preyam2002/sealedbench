@@ -9,6 +9,7 @@
     "demo": "tsx scripts/demo.ts",
     "register:enclave": "tsx scripts/register-nautilus-enclave.ts",
     "assert:enclave": "tsx scripts/assert-enclave-pk.ts",
+    "live:nitro-run": "tsx scripts/live-nitro-run.ts",
     "upgrade:package": "tsx scripts/upgrade-package.ts",
     "upgrade:package:dry": "tsx scripts/upgrade-package.ts --dry-run",
     "publish:package": "tsx scripts/upgrade-package.ts --publish-new",

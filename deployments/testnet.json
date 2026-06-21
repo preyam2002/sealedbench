@@ -13,8 +13,17 @@
   "clockObjectId": "0x6",
   "enclavePackageId": "0x9f6c9b056485a707d6bb8f6b5d810104cf1c44752899eef5378b5e12167bae4f",
   "enclaveCapId": "0x147c132bad4b40574e6717126309bd6e32d8f42b780c1dc925948876648a6017",
-  "seedSealedEvalId": "0x758aab4a1ecbb5dab258af6a42a9208562038df125df0fd667572c06e62a77c6",
-  "seedWalrusBlobId": "T8KX29uMz18IWrYxgTAm9sfFrIgBCIJg5KDhG_6MLNQ",
-  "seedCreateDigest": "BPEnFv3iF7kyL6NVuFbu5AQ3xHScg61yGA3LadJBC9Sm",
+  "registeredEnclaveId": "0x50570041a718078ef51044328a23f2d00fa637353cc92e233d94d959461f7a1e",
+  "registeredEnclavePk": "d94d6b4a41b7d083a5940709f3d04c672ed7e5cecdb4c45e7cfce76e8232ee2d",
+  "seedSealedEvalId": "0xc03afb12f03da17ce90ef334b740e3bde5e80995606f7558da2c629fb97d6474",
+  "activeSealedEvalIds": [
+    "0x8a3852f8d57fd738d35589ca42f3f0a96e6d76b0ace49409efafe76943960222"
+  ],
+  "attestedScoreId": "0x4e563e5549e419cb213e97fb53e5b8701996b131b0187906f38f3fd7ecd3caff",
+  "attestedScoreDigest": "FN3JW6Be3D871SSeT4QMkKKa47exGSnEVmVr9AtahRoy",
+  "traceBlobId": "hCunq9O1tUfbdZJi-4FKKHXlc4Zwncp0T66YLlZvcrk",
+  "traceItemsHash": "d4a03e29ea1cda60806b385b31c07bd6c7354a9cd1b1bf0e8b6552bde3e64c2d",
+  "seedWalrusBlobId": "0qirQS37ujigOoWCNzSuM97IseB-OtDt1XR2StJNNto",
+  "seedCreateDigest": "D6XEKsnLderoCpJyF21RgAYbsbdY85LSQwyMETWAXsqd",
   "seedPlaintextHash": "45da3c9554f9dfbf128e2de6416beb6b99703b718495041354669f899545701f"
 }
