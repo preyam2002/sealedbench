@@ -1,36 +1,40 @@
-import testnetDeployment from "../../../deployments/testnet.json";
 import type { Network } from "./format";
 
 export const NETWORK: Network =
   (process.env.NEXT_PUBLIC_SUI_NETWORK as Network) ?? "testnet";
 
+// Recorded testnet deployment, inlined so the web app builds standalone without
+// importing across the pnpm-workspace boundary (Vercel uploads only this package).
+// `deployments/testnet.json` is the canonical source — config.test.ts asserts these
+// constants stay in sync with it. Override any value via NEXT_PUBLIC_* env for mainnet.
+const TESTNET = {
+  packageId:
+    "0x9f6c9b056485a707d6bb8f6b5d810104cf1c44752899eef5378b5e12167bae4f",
+  activeSealedEvalIds: [
+    "0x8a3852f8d57fd738d35589ca42f3f0a96e6d76b0ace49409efafe76943960222",
+  ],
+  registeredEnclavePk:
+    "d94d6b4a41b7d083a5940709f3d04c672ed7e5cecdb4c45e7cfce76e8232ee2d",
+} as const;
+
 // The published sealedbench package (testnet). Override via env for mainnet.
 export const PACKAGE_ID =
-  process.env.NEXT_PUBLIC_SEALEDBENCH_PACKAGE_ID ?? testnetDeployment.packageId;
+  process.env.NEXT_PUBLIC_SEALEDBENCH_PACKAGE_ID ?? TESTNET.packageId;
 
 const configuredActiveEvalIds =
   process.env.NEXT_PUBLIC_SEALEDBENCH_ACTIVE_EVAL_IDS;
-
-const defaultActiveEvalIds =
-  testnetDeployment.activeSealedEvalIds?.length > 0
-    ? testnetDeployment.activeSealedEvalIds
-    : testnetDeployment.seedSealedEvalId
-      ? [testnetDeployment.seedSealedEvalId]
-      : [];
 
 export const ACTIVE_SEALED_EVAL_IDS = configuredActiveEvalIds
   ? configuredActiveEvalIds
       .split(",")
       .map((id) => id.trim())
       .filter(Boolean)
-  : defaultActiveEvalIds;
+  : [...TESTNET.activeSealedEvalIds];
 
 // Optional: the registered enclave public key, used to downgrade scores from an
 // unrecognized enclave to "unverified" on the leaderboard.
 export const REGISTERED_ENCLAVE_PK =
-  process.env.NEXT_PUBLIC_ENCLAVE_PK ??
-  testnetDeployment.registeredEnclavePk ??
-  "";
+  process.env.NEXT_PUBLIC_ENCLAVE_PK ?? TESTNET.registeredEnclavePk;
 
 // RPC endpoints, tried in order. The leaderboard reads historical Move events
 // (queryEvents), which require an archival node — publicnode prunes transaction
