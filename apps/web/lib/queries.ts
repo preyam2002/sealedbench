@@ -99,6 +99,13 @@ export async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
   ]);
   return filterActiveSealedEvals(evals).map((evalObj) => ({
     eval: evalObj,
-    scores: scores.filter((s) => s.sealedEvalId === evalObj.objectId),
+    // Only surface scores whose declared model matches the eval's declared
+    // target. This keeps the canonical attested run and drops stray/test runs
+    // posted under a different model label.
+    scores: scores.filter(
+      (s) =>
+        s.sealedEvalId === evalObj.objectId &&
+        s.modelTarget === evalObj.modelTarget,
+    ),
   }));
 }
