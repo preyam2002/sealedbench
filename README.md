@@ -4,6 +4,8 @@
 
 Sui Overflow 2026 · Walrus track (~$70k) · Built on Walrus + Seal + Nautilus, targeting **mainnet**.
 
+**▶ Live demo: https://sealedbench.vercel.app** — every score on the leaderboard is verifiable in your own browser against Sui + Walrus, live on testnet.
+
 ---
 
 ## The problem (the plain version)

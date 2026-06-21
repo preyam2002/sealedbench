@@ -1,9 +1,9 @@
 # SealedBench — demo script
 
-The live frontend is the demo surface. It shows four real testnet `SealedEval`
-objects, one real posted `AttestedScore`, browser-side Walrus hash
-verification, trace verification, and a server-side **Run in enclave** path
-wired to the running SealedBench Nitro enclave.
+The live frontend is the demo surface. It shows a real testnet `SealedEval`,
+one real posted `AttestedScore` (signed by the registered enclave), browser-side
+Walrus ciphertext + trace hash verification, and a server-side **Run in enclave**
+path wired to the SealedBench Nitro enclave.
 
 Current demo mode temporarily pauses Aegis on the shared Nitro host. The host
 allocator reserves only CPUs `1,3`, and a Nitro enclave consumes its assigned
@@ -12,10 +12,11 @@ same time without a larger/reconfigured instance.
 
 ## Manual Frontend Demo
 
-Open the built frontend:
+Open the live site (or run locally):
 
 ```text
-http://localhost:3012
+https://sealedbench.vercel.app      # live (public, testnet)
+http://localhost:3012               # local
 ```
 
 Demo flow:

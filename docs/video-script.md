@@ -4,7 +4,7 @@ Shot-by-shot for the Sui Overflow 2026 (Walrus track) submission. Everything sho
 live on Sui testnet and verifiable by the viewer. Real IDs are baked in so you can
 read them on screen.
 
-Live site: `http://localhost:3012` (or the deployed Vercel URL).
+Live site: **https://sealedbench.vercel.app** (or `http://localhost:3012` locally).
 
 | Object | ID |
 | --- | --- |
