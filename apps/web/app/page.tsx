@@ -57,8 +57,9 @@ export default async function Home() {
               attested enclave signature
             </span>{" "}
             nobody could forge. Two independent lies —{" "}
-            <span className="redact">contamination</span> and{" "}
-            <span className="redact">dishonest grading</span> — both closed.
+            <span className="declassified">contamination</span> and{" "}
+            <span className="declassified">dishonest grading</span> — both
+            closed.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <span
@@ -99,6 +100,33 @@ export default async function Home() {
             <div className="mono mt-1 truncate text-base text-ink">{s.v}</div>
           </div>
         ))}
+      </section>
+
+      <section className="rise mt-10 border-y border-line py-5">
+        <div className="tag text-seal">Why it matters</div>
+        <div className="mt-4 grid gap-5 sm:grid-cols-3">
+          {[
+            {
+              k: "Contamination is here",
+              v: "When a test set leaks into training data, the score measures memorization, not reasoning. In 2025 a major lab publicly stopped trusting a popular benchmark over exactly this.",
+            },
+            {
+              k: "Regulators want receipts",
+              v: "The EU AI Act is enforceable from Aug 2026 — GPAI providers must document model evaluations. SealedBench emits a tamper-evident, independently-verifiable one.",
+            },
+            {
+              k: "Verifiable beats self-reported",
+              v: "A score anyone can re-check against Sui and Walrus is worth more than a number a lab grades for itself — for labs, auditors, and benchmark authors alike.",
+            },
+          ].map((item) => (
+            <div key={item.k}>
+              <div className="tag text-faint">{item.k}</div>
+              <p className="font-body mt-2 text-[0.95rem] leading-relaxed text-muted">
+                {item.v}
+              </p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="rise mt-10 border-y border-line py-5">

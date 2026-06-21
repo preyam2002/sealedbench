@@ -152,6 +152,17 @@ body::after {
   user-select: none;
 }
 
+/* A redaction bar that's been *declassified*: the hidden term, now revealed in
+ * reverse ink. Used to spotlight the two lies SealedBench exposes. */
+.declassified {
+  background: var(--color-ink);
+  color: var(--color-panel-2);
+  border-radius: 2px;
+  padding: 0.04em 0.34em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 /* Perforated / torn paper edge motif. */
 .perf {
   --perf-size: 9px;
